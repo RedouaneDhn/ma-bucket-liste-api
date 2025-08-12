@@ -17,11 +17,15 @@ const supabase = createClient(
 // Middlewares de sécurité
 app.use(helmet());
 app.use(cors({
-  origin: ['https://ma-bucket-liste.vercel.app', 'http://localhost:3000'],
+  origin: [
+    'https://ma-bucket-liste.vercel.app', 
+    'http://localhost:3000',
+    'http://127.0.0.1:5500'  // Pour Live Server en développement
+  ],
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting général
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limite de 100 requêtes par fenêtre par IP
@@ -29,14 +33,37 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// Rate limiting spécial pour l'authentification
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // max 5 tentatives de connexion par IP
+  skipSuccessfulRequests: true,
+  message: { error: 'Trop de tentatives de connexion, réessayez dans 15 minutes.' }
+});
+
 // Parser JSON
 app.use(express.json());
+
+// ==========================================
+// IMPORTER LES NOUVELLES ROUTES
+// ==========================================
+const authBucketRoutes = require('./routes/auth-bucket');
+
+// ==========================================
+// ROUTES PRINCIPALES (existantes)
+// ==========================================
 
 // Route de test
 app.get('/', (req, res) => {
   res.json({ 
     message: 'API Ma Bucket Liste - Opérationnelle ✅',
-    version: '1.0.0',
+    version: '2.0.0', // Mise à jour de version
+    features: [
+      'Activités et recherche',
+      'Authentification utilisateurs',
+      'Bucket lists personnelles',
+      'Partage sur réseaux sociaux'
+    ],
     timestamp: new Date().toISOString()
   });
 });
@@ -63,8 +90,6 @@ app.get('/api/test', async (req, res) => {
     });
   }
 });
-
-// ROUTES PRINCIPALES
 
 // 🌍 Récupérer toutes les activités avec filtres optionnels
 app.get('/api/activities', async (req, res) => {
@@ -233,13 +258,73 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// ==========================================
+// UTILISER LES NOUVELLES ROUTES
+// ==========================================
+
+// Appliquer le rate limiting spécial aux endpoints d'auth
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
+// Utiliser les nouvelles routes d'authentification et bucket list
+app.use('/api', authBucketRoutes);
+
+// ==========================================
+// GESTION DES ERREURS
+// ==========================================
+
 // Gestion des erreurs 404
 app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route non trouvée' });
+  res.status(404).json({ 
+    error: 'Route non trouvée',
+    available_endpoints: [
+      'GET /',
+      'GET /api/test',
+      'GET /api/activities',
+      'GET /api/activities/:id',
+      'GET /api/categories',
+      'GET /api/continents', 
+      'GET /api/search',
+      'GET /api/stats',
+      'POST /api/auth/register',
+      'POST /api/auth/login',
+      'GET /api/auth/me',
+      'GET /api/user/bucket-list',
+      'POST /api/user/bucket-list/add',
+      'PUT /api/user/bucket-list/:id/status',
+      'GET /api/user/stats',
+      'GET /api/user/bucket-list/share/:type (summary|stats|instagram|tiktok)'
+    ]
+  });
+});
+
+// Middleware de gestion d'erreurs globales
+app.use((err, req, res, next) => {
+  console.error('Erreur serveur:', err);
+  
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: 'Format JSON invalide' });
+  }
+
+  res.status(500).json({
+    error: 'Erreur interne du serveur',
+    ...(process.env.NODE_ENV === 'development' && { details: err.message })
+  });
 });
 
 // Démarrage du serveur
 app.listen(PORT, () => {
   console.log(`🚀 API Ma Bucket Liste démarrée sur le port ${PORT}`);
   console.log(`📍 http://localhost:${PORT}`);
+  console.log(`📋 Nouveaux endpoints disponibles :`);
+  console.log(`   • POST /api/auth/register - Inscription`);
+  console.log(`   • POST /api/auth/login - Connexion`);
+  console.log(`   • GET  /api/user/bucket-list - Ma bucket list`);
+  console.log(`   • POST /api/user/bucket-list/add - Ajouter activité`);
+  console.log(`   • GET  /api/user/bucket-list/share/summary - Partage résumé`);
+  console.log(`   • GET  /api/user/bucket-list/share/stats - Partage statistiques`);
+  console.log(`   • GET  /api/user/bucket-list/share/instagram - Partage Instagram`);
+  console.log(`   • GET  /api/user/bucket-list/share/tiktok - Partage TikTok`);
+  console.log(`   • PUT  /api/user/bucket-list/:id/status - Changer statut`);
+  console.log(`   • GET  /api/user/stats - Statistiques utilisateur`);
 });
