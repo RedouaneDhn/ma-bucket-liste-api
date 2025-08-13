@@ -48,6 +48,7 @@ app.use(express.json());
 // IMPORTER LES NOUVELLES ROUTES
 // ==========================================
 const authBucketRoutes = require('./routes/auth-bucket');
+const userProfileRoutes = require('./routes/user-profile');
 
 // ==========================================
 // ROUTES PRINCIPALES (existantes)
@@ -268,6 +269,7 @@ app.use('/api/auth/register', authLimiter);
 
 // Utiliser les nouvelles routes d'authentification et bucket list
 app.use('/api', authBucketRoutes);
+app.use('/api/user', userProfileRoutes);
 
 // ==========================================
 // GESTION DES ERREURS
