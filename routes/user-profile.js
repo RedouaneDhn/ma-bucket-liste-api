@@ -3,7 +3,39 @@ const express = require('express');
 const multer = require('multer');
 const { put, del } = require('@vercel/blob');
 const { supabase } = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const authenticateToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token d\'accès requis'
+      });
+    }
+
+    const { supabase } = require('../config/supabase');
+    const { data: user, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return res.status(403).json({
+        success: false,
+        message: 'Token invalide'
+      });
+    }
+
+    req.user = user.user;
+    req.userId = user.user.id;
+    next();
+  } catch (error) {
+    console.error('Erreur authentification:', error);
+    res.status(403).json({
+      success: false,
+      message: 'Token invalide'
+    });
+  }
+};
 
 const router = express.Router();
 
