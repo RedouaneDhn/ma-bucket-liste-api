@@ -272,6 +272,9 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api', authBucketRoutes);
 app.use('/api/user', userProfileRoutes);
 
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
 // ==========================================
 // GESTION DES ERREURS
 // ==========================================
