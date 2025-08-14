@@ -6,6 +6,10 @@ const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
+
+// ==========================================
+// 1. CONFIGURATION (EN PREMIER)
+// ==========================================
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
@@ -15,7 +19,15 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// Middlewares de sécurité
+// ==========================================
+// 2. MIDDLEWARES DE PARSING (AVANT LES ROUTES)
+// ==========================================
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// ==========================================
+// 3. MIDDLEWARES DE SÉCURITÉ
+// ==========================================
 app.use(helmet());
 app.use(cors({
   origin: [
@@ -26,6 +38,9 @@ app.use(cors({
   credentials: true
 }));
 
+// ==========================================
+// 4. RATE LIMITING
+// ==========================================
 // Rate limiting général
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -42,17 +57,14 @@ const authLimiter = rateLimit({
   message: { error: 'Trop de tentatives de connexion, réessayez dans 15 minutes.' }
 });
 
-// Parser JSON
-app.use(express.json());
-
 // ==========================================
-// IMPORTER LES NOUVELLES ROUTES
+// 5. IMPORTER LES ROUTES
 // ==========================================
 const authBucketRoutes = require('./routes/auth-bucket');
 const userProfileRoutes = require('./routes/user-profile');
 
 // ==========================================
-// ROUTES PRINCIPALES (existantes)
+// 6. ROUTES PRINCIPALES (existantes)
 // ==========================================
 
 // Route de test
@@ -261,7 +273,7 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // ==========================================
-// UTILISER LES NOUVELLES ROUTES
+// 7. ROUTES AVEC AUTHENTIFICATION (EN DERNIER)
 // ==========================================
 
 // Appliquer le rate limiting spécial aux endpoints d'auth
@@ -272,12 +284,32 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api', authBucketRoutes);
 app.use('/api/user', userProfileRoutes);
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+// ==========================================
+// 8. GESTION DES ERREURS
+// ==========================================
 
-// ==========================================
-// GESTION DES ERREURS
-// ==========================================
+// Middleware de gestion d'erreurs Multer (upload fichiers)
+app.use((error, req, res, next) => {
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      success: false,
+      message: 'Fichier trop volumineux (max 2MB)'
+    });
+  }
+  
+  if (error.message === 'Seuls les fichiers image sont autorisés') {
+    return res.status(400).json({
+      success: false,
+      message: 'Format de fichier non supporté. Utilisez JPG, PNG ou GIF.'
+    });
+  }
+
+  console.error('Erreur serveur:', error);
+  res.status(500).json({
+    success: false,
+    message: 'Erreur serveur interne'
+  });
+});
 
 // Gestion des erreurs 404
 app.use('*', (req, res) => {
@@ -299,6 +331,10 @@ app.use('*', (req, res) => {
       'POST /api/user/bucket-list/add',
       'PUT /api/user/bucket-list/:id/status',
       'GET /api/user/stats',
+      'GET /api/user/profile',
+      'PUT /api/user/profile',
+      'POST /api/user/avatar',
+      'DELETE /api/user/avatar',
       'GET /api/user/bucket-list/share/:type (summary|stats|instagram|tiktok)'
     ]
   });
@@ -318,7 +354,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Démarrage du serveur
+// ==========================================
+// 9. DÉMARRAGE DU SERVEUR
+// ==========================================
 app.listen(PORT, () => {
   console.log(`🚀 API Ma Bucket Liste démarrée sur le port ${PORT}`);
   console.log(`📍 http://localhost:${PORT}`);
@@ -327,6 +365,10 @@ app.listen(PORT, () => {
   console.log(`   • POST /api/auth/login - Connexion`);
   console.log(`   • GET  /api/user/bucket-list - Ma bucket list`);
   console.log(`   • POST /api/user/bucket-list/add - Ajouter activité`);
+  console.log(`   • GET  /api/user/profile - Mon profil`);
+  console.log(`   • PUT  /api/user/profile - Modifier profil`);
+  console.log(`   • POST /api/user/avatar - Upload avatar`);
+  console.log(`   • DELETE /api/user/avatar - Supprimer avatar`);
   console.log(`   • GET  /api/user/bucket-list/share/summary - Partage résumé`);
   console.log(`   • GET  /api/user/bucket-list/share/stats - Partage statistiques`);
   console.log(`   • GET  /api/user/bucket-list/share/instagram - Partage Instagram`);
