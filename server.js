@@ -22,8 +22,23 @@ const supabase = createClient(
 // ==========================================
 // 2. MIDDLEWARES DE PARSING (AVANT LES ROUTES)
 // ==========================================
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+// Middleware JSON conditionnel - évite les conflits avec les uploads
+app.use((req, res, next) => {
+  // Ne pas parser JSON pour les uploads de fichiers
+  if (req.path === '/api/user/avatar' && req.method === 'POST') {
+    return next();
+  }
+  // Parser JSON pour toutes les autres routes
+  express.json({ limit: '2mb' })(req, res, next);
+});
+
+app.use((req, res, next) => {
+  // Ne pas parser urlencoded pour les uploads de fichiers  
+  if (req.path === '/api/user/avatar' && req.method === 'POST') {
+    return next();
+  }
+  express.urlencoded({ extended: true, limit: '2mb' })(req, res, next);
+});
 
 // ==========================================
 // 3. MIDDLEWARES DE SÉCURITÉ
