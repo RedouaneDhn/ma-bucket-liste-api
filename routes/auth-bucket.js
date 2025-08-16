@@ -205,7 +205,7 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
           id,
           title,
           description,
-          image_url,
+          location,
           difficulty,
           estimated_cost,
           estimated_duration,
@@ -286,7 +286,11 @@ router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
       .select(`
         *,
         activity:activities (
-          id, title, description, image_url,
+          id,
+          title,
+          description,
+          location,
+          difficulty,
           category:categories(name),
           continent:continents(name)
         )
@@ -343,7 +347,11 @@ router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) =
       .select(`
         *,
         activity:activities (
-          id, title, description, image_url,
+          id,
+          title,
+          description,
+          location,
+          difficulty,
           category:categories(name),
           continent:continents(name)
         )
@@ -480,7 +488,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
           .select(`
             *,
             activity:activities (
-              title, image_url,
+              title,
               category:categories(name),
               continent:continents(name)
             )
@@ -500,12 +508,11 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
           text: `✨ Ma bucket list d'expériences de rêve !\n\n🌟 ${instagramStats.total} aventures à vivre\n✅ ${instagramStats.completed} déjà cochées\n\n${instagramBucketList?.slice(0, 3).map((item, index) => `${index + 1}. ${item.activity.title} ${item.status === 'completed' ? '✅' : '📍'}`).join('\n') || ''}\n\nEt vous, quelle est votre prochaine aventure ?`,
           url: `https://ma-bucket-liste.vercel.app`,
           hashtags: ['BucketList', 'TravelGoals', 'LifeGoals', 'Adventure', 'Dreams', 'Wanderlust', 'Experience', 'Goals2025'],
-          image: instagramBucketList?.[0]?.activity?.image_url || 'https://ma-bucket-liste.vercel.app/images/instagram-template.jpg',
+          image: 'https://ma-bucket-liste.vercel.app/images/instagram-template.jpg',
           instagram_specific: {
             story_text: `Ma bucket list 📋\n${instagramStats.completed}/${instagramStats.total} réalisées ✨`,
             grid_layout: instagramBucketList?.slice(0, 6).map(item => ({
               title: item.activity.title,
-              image: item.activity.image_url,
               status: item.status
             })) || []
           }
@@ -519,7 +526,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
           .select(`
             *,
             activity:activities (
-              title, image_url,
+              title,
               category:categories(name),
               continent:continents(name)
             )
@@ -537,7 +544,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
           text: `🎬 Ma bucket list en mode TikTok !\n\n✅ ${completedActivities.length} expériences déjà vécues\n📍 ${plannedActivities.length} encore à découvrir\n\n${plannedActivities.slice(0, 3).map((item, index) => `${index + 1}. ${item.activity.title}`).join('\n') || ''}\n\nQui veut faire ça avec moi ? 🤗`,
           url: `https://ma-bucket-liste.vercel.app`,
           hashtags: ['BucketList', 'BucketListChallenge', 'TravelTok', 'LifeGoals', 'Adventure', 'Challenge', 'Goals2025', 'DreamLife'],
-          image: tiktokBucketList?.[0]?.activity?.image_url || 'https://ma-bucket-liste.vercel.app/images/tiktok-template.jpg',
+          image: 'https://ma-bucket-liste.vercel.app/images/tiktok-template.jpg',
           tiktok_specific: {
             video_ideas: [
               `Montrer ${Math.min(completedActivities.length, 5)} activités réalisées en 30 secondes`,
