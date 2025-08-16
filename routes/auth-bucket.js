@@ -206,10 +206,13 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
           title,
           description,
           location,
-          difficulty,
-          estimated_cost,
-          estimated_duration,
-          category:categories(name, color),
+          image_path,
+          difficulty_level,
+          estimated_budget_min,
+          estimated_budget_max,
+          duration_days,
+          rating,
+          category:categories(name),
           continent:continents(name)
         )
       `)
@@ -290,7 +293,9 @@ router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
           title,
           description,
           location,
-          difficulty,
+          image_path,
+          difficulty_level,
+          rating,
           category:categories(name),
           continent:continents(name)
         )
@@ -351,7 +356,9 @@ router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) =
           title,
           description,
           location,
-          difficulty,
+          image_path,
+          difficulty_level,
+          rating,
           category:categories(name),
           continent:continents(name)
         )
@@ -489,6 +496,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
             *,
             activity:activities (
               title,
+              image_path,
               category:categories(name),
               continent:continents(name)
             )
@@ -513,6 +521,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
             story_text: `Ma bucket list 📋\n${instagramStats.completed}/${instagramStats.total} réalisées ✨`,
             grid_layout: instagramBucketList?.slice(0, 6).map(item => ({
               title: item.activity.title,
+              image: item.activity.image_path,
               status: item.status
             })) || []
           }
@@ -527,6 +536,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
             *,
             activity:activities (
               title,
+              image_path,
               category:categories(name),
               continent:continents(name)
             )
