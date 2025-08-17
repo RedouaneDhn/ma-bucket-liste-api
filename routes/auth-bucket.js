@@ -192,7 +192,7 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
 // ENDPOINTS BUCKET LIST
 // ==========================================
 
-// GET /api/user/bucket-list
+// GET /api/user/bucket-list - VERSION CORRIGÉE
 router.get('/user/bucket-list', authenticateToken, async (req, res) => {
   try {
     const { status, category, continent } = req.query;
@@ -200,20 +200,51 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
     let query = supabase
       .from('user_bucket_lists')
       .select(`
-        *,
+        id,
+        user_id,
+        activity_id,
+        status,
+        date_added,
+        planned_date,
+        completed_date,
+        personal_notes,
+        rating as user_rating,
+        review,
+        is_shared,
+        share_token,
+        personal_budget,
+        actual_cost,
+        created_at,
+        updated_at,
+        notes,
+        target_date,
+        priority,
         activity:activities (
           id,
           title,
+          subtitle,
           description,
           location,
           image_path,
-          difficulty_level,
+          image_alt,
+          url,
+          rating,
+          rating_count,
+          popularity_score,
           estimated_budget_min,
           estimated_budget_max,
           duration_days,
-          rating,
-          category:categories(name),
-          continent:continents(name)
+          difficulty_level,
+          best_season,
+          is_active,
+          is_featured,
+          category:categories (
+            id,
+            name,
+            slug,
+            icon,
+            color
+          )
         )
       `)
       .eq('user_id', req.userId);
@@ -222,21 +253,90 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
       query = query.eq('status', status);
     }
 
-    const { data: bucketList, error } = await query.order('created_at', { ascending: false });
+    const { data: bucketListRaw, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       throw error;
     }
 
+    // Formater les données pour inclure le budget formaté et une structure propre
+    const bucketList = bucketListRaw?.map(item => {
+      // Formater le budget
+      let estimatedBudget = 'Prix sur demande';
+      if (item.activity.estimated_budget_min && item.activity.estimated_budget_max) {
+        estimatedBudget = `${item.activity.estimated_budget_min}-${item.activity.estimated_budget_max}€`;
+      } else if (item.activity.estimated_budget_min) {
+        estimatedBudget = `À partir de ${item.activity.estimated_budget_min}€`;
+      } else if (item.activity.estimated_budget_max) {
+        estimatedBudget = `Jusqu'à ${item.activity.estimated_budget_max}€`;
+      }
+
+      return {
+        // Données bucket list item
+        id: item.id,
+        user_id: item.user_id,
+        activity_id: item.activity_id,
+        status: item.status,
+        date_added: item.date_added,
+        planned_date: item.planned_date,
+        completed_date: item.completed_date,
+        personal_notes: item.personal_notes,
+        user_rating: item.user_rating,
+        review: item.review,
+        is_shared: item.is_shared,
+        share_token: item.share_token,
+        personal_budget: item.personal_budget,
+        actual_cost: item.actual_cost,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        notes: item.notes,
+        target_date: item.target_date,
+        priority: item.priority,
+        
+        // Données activité complètes et formatées
+        activity: {
+          id: item.activity.id,
+          title: item.activity.title,
+          subtitle: item.activity.subtitle,
+          description: item.activity.description,
+          location: item.activity.location,
+          image_path: item.activity.image_path,
+          image_alt: item.activity.image_alt,
+          url: item.activity.url,
+          rating: item.activity.rating,
+          rating_count: item.activity.rating_count,
+          popularity_score: item.activity.popularity_score,
+          estimated_budget: estimatedBudget, // Budget formaté
+          estimated_budget_min: item.activity.estimated_budget_min,
+          estimated_budget_max: item.activity.estimated_budget_max,
+          duration_days: item.activity.duration_days,
+          difficulty_level: item.activity.difficulty_level,
+          best_season: item.activity.best_season,
+          is_active: item.activity.is_active,
+          is_featured: item.activity.is_featured,
+          category: {
+            id: item.activity.category?.id,
+            name: item.activity.category?.name,
+            slug: item.activity.category?.slug,
+            icon: item.activity.category?.icon,
+            color: item.activity.category?.color
+          }
+        }
+      };
+    }) || [];
+
     res.json({ 
       success: true,
-      bucketList: bucketList || [],
-      total: bucketList?.length || 0
+      bucketList: bucketList,
+      total: bucketList.length
     });
 
   } catch (error) {
     console.error('Erreur récupération bucket list:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération de la bucket list' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Erreur lors de la récupération de la bucket list' 
+    });
   }
 });
 
