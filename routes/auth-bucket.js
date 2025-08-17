@@ -208,7 +208,7 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
         planned_date,
         completed_date,
         personal_notes,
-        rating as user_rating,
+        rating,
         review,
         is_shared,
         share_token,
