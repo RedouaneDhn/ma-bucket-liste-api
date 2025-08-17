@@ -384,6 +384,50 @@ router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) =
   }
 });
 
+// DELETE /api/user/bucket-list/:id
+router.delete('/user/bucket-list/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: 'ID de l\'item bucket list requis' });
+    }
+
+    // Vérifier que l'item appartient bien à l'utilisateur et le supprimer
+    const { data: deletedItem, error } = await supabase
+      .from('user_bucket_lists')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.userId)
+      .select(`
+        *,
+        activity:activities (
+          id,
+          title,
+          location
+        )
+      `)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Item de bucket liste non trouvé' });
+      }
+      throw error;
+    }
+
+    res.json({
+      success: true,
+      message: 'Activité supprimée de votre bucket liste',
+      deletedItem
+    });
+
+  } catch (error) {
+    console.error('Erreur suppression bucket liste:', error);
+    res.status(500).json({ error: 'Erreur lors de la suppression de la bucket liste' });
+  }
+});
+
 // GET /api/user/stats
 router.get('/user/stats', authenticateToken, async (req, res) => {
   try {
