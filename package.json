@@ -1,5 +1,5 @@
 {
-  "name": "ma-bucket-liste-api",
+  "name": "mabucketliste-api",
   "version": "2.0.0",
   "description": "API Backend pour Ma Bucket Liste - Avec authentification et partage social",
   "main": "server.js",
