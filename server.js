@@ -47,6 +47,8 @@ app.use(helmet());
 app.use(cors({
   origin: [
     'https://ma-bucket-liste.vercel.app', 
+    'https://www.mabucketliste.fr',
+    'https://mabucketliste.fr',
     'http://localhost:3000',
     'http://127.0.0.1:5500'  // Pour Live Server en développement
   ],
