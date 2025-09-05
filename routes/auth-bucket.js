@@ -438,7 +438,7 @@ router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) =
 
     if (notes) updateData.notes = notes;
     if (status === 'completed') {
-      updateData.completion_date = completion_date || new Date().toISOString();
+        updateData.completed_date = completion_date || new Date().toISOString().split('T')[0];
       if (rating && rating >= 1 && rating <= 5) {
         updateData.rating = rating;
       }
