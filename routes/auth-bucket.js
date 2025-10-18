@@ -198,10 +198,10 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
 // ENDPOINTS BUCKET LIST
 // ==========================================
 
-// GET /api/user/bucket-list - CORRIGÉ
+// GET /api/user/bucket-list - SANS slug
 router.get('/user/bucket-list', authenticateToken, async (req, res) => {
   try {
-    const { status, category, continent } = req.query;
+    const { status } = req.query;
 
     let query = supabase
       .from('user_bucket_lists')
@@ -210,7 +210,6 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
         activity:activities (
           id,
           title,
-          slug,
           subtitle,
           description,
           location,
@@ -273,7 +272,7 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
         planned_date: item.planned_date,
         completed_date: item.completed_date,
         personal_notes: item.personal_notes,
-        user_rating: item.rating, // ← IMPORTANT : renommé pour éviter conflit avec activity.rating
+        user_rating: item.rating,
         review: item.review,
         is_shared: item.is_shared,
         share_token: item.share_token,
@@ -287,7 +286,6 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
         activity: {
           id: item.activity.id,
           title: item.activity.title,
-          slug: item.activity.slug,
           subtitle: item.activity.subtitle,
           description: item.activity.description,
           location: item.activity.location,
@@ -331,7 +329,7 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/user/bucket-list/add
+// POST /api/user/bucket-list/add - SANS slug
 router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
   try {
     const { activityId, notes, priority, target_date } = req.body;
@@ -379,7 +377,6 @@ router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
         activity:activities (
           id,
           title,
-          slug,
           description,
           location,
           image_path,
@@ -406,7 +403,7 @@ router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
   }
 });
 
-// PUT /api/user/bucket-list/:id/status
+// PUT /api/user/bucket-list/:id/status - SANS slug
 router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -442,7 +439,6 @@ router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) =
         activity:activities (
           id,
           title,
-          slug,
           description,
           location,
           image_path,
@@ -599,6 +595,7 @@ router.get('/user/bucket-list/share/preview', async (req, res) => {
 /**
  * GET /api/user/bucket-list/share/:type
  * Génère une image de partage social dynamique avec Cloudinary
+ * ✅ AVEC slug (nécessaire pour Cloudinary)
  */
 router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) => {
   try {
@@ -616,7 +613,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
     
     console.log(`[SHARE] Génération d'image ${type} pour user ${userId}`);
     
-    // 1. Récupérer la bucket list complète
+    // 1. Récupérer la bucket list complète - AVEC slug pour Cloudinary
     const { data: bucketList, error: bucketError } = await supabase
       .from('user_bucket_lists')
       .select(`
@@ -740,8 +737,6 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
   }
 });
 
-
-
 /**
  * POST /api/user/bucket-list/share/download
  * Logger les téléchargements (analytics)
@@ -838,13 +833,12 @@ function generateSocialLinks(shareContent) {
       },
       web_url: 'https://www.instagram.com'
     },
-     tiktok: {
+    tiktok: {
       type: 'manual',
       instructions: {
         step1: 'Créer une vidéo montrant votre bucket list',
         step2: 'Utiliser le texte ci-dessous comme description',
-        step3: 'Ajouter les hashtags suggérés',
-        text: shareContent.text,
+        step3: 'Ajouter les hashtags suggérés', text: shareContent.text,
         hashtags: shareContent.hashtags.concat(['BucketListChallenge', 'TravelGoals', 'LifeGoals']).map(tag => `#${tag}`).join(' '),
         video_ideas: [
           'Montrer les photos des activités de votre liste',
@@ -855,11 +849,8 @@ function generateSocialLinks(shareContent) {
       },
       web_url: 'https://www.tiktok.com'
     },
-
     snapchat: `https://www.snapchat.com/scan?attachmentUrl=${encodedUrl}`,
-
     copy: shareContent.url,
-    
     native: {
       title: shareContent.title,
       text: shareContent.text,
