@@ -1,10 +1,16 @@
 // routes/auth-bucket.js
-// Nouveaux endpoints pour auth et partage social
+// Endpoints pour auth, bucket list et partage social avec Cloudinary
 
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
+// ✨ NOUVEAU : Import du helper Cloudinary
+const { 
+  generateCloudinaryShareImage, 
+  generateAllSocialImages 
+} = require('../utils/cloudinary-share-helper');
 
 const router = express.Router();
 
@@ -192,7 +198,7 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
 // ENDPOINTS BUCKET LIST
 // ==========================================
 
-// GET /api/user/bucket-list - VERSION CORRIGÉE
+// GET /api/user/bucket-list
 router.get('/user/bucket-list', authenticateToken, async (req, res) => {
   try {
     const { status, category, continent } = req.query;
@@ -222,6 +228,7 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
         activity:activities (
           id,
           title,
+          slug,
           subtitle,
           description,
           location,
@@ -259,9 +266,8 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
       throw error;
     }
 
-    // Formater les données pour inclure le budget formaté et une structure propre
+    // Formater les données
     const bucketList = bucketListRaw?.map(item => {
-      // Formater le budget
       let estimatedBudget = 'Prix sur demande';
       if (item.activity.estimated_budget_min && item.activity.estimated_budget_max) {
         estimatedBudget = `${item.activity.estimated_budget_min}-${item.activity.estimated_budget_max}€`;
@@ -272,7 +278,6 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
       }
 
       return {
-        // Données bucket list item
         id: item.id,
         user_id: item.user_id,
         activity_id: item.activity_id,
@@ -292,11 +297,10 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
         notes: item.notes,
         target_date: item.target_date,
         priority: item.priority,
-        
-        // Données activité complètes et formatées
         activity: {
           id: item.activity.id,
           title: item.activity.title,
+          slug: item.activity.slug,
           subtitle: item.activity.subtitle,
           description: item.activity.description,
           location: item.activity.location,
@@ -306,7 +310,7 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
           rating: item.activity.rating,
           rating_count: item.activity.rating_count,
           popularity_score: item.activity.popularity_score,
-          estimated_budget: estimatedBudget, // Budget formaté
+          estimated_budget: estimatedBudget,
           estimated_budget_min: item.activity.estimated_budget_min,
           estimated_budget_max: item.activity.estimated_budget_max,
           duration_days: item.activity.duration_days,
@@ -349,7 +353,6 @@ router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'ID de l\'activité requis' });
     }
 
-    // Vérifier si l'activité existe
     const { data: activity, error: activityError } = await supabase
       .from('activities')
       .select('id, title')
@@ -360,7 +363,6 @@ router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Activité non trouvée' });
     }
 
-    // Vérifier si l'activité n'est pas déjà dans la bucket list
     const { data: existing } = await supabase
       .from('user_bucket_lists')
       .select('id')
@@ -372,7 +374,6 @@ router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'Cette activité est déjà dans votre bucket list' });
     }
 
-    // Ajouter à la bucket list
     const { data: bucketItem, error } = await supabase
       .from('user_bucket_lists')
       .insert([
@@ -391,13 +392,13 @@ router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
         activity:activities (
           id,
           title,
+          slug,
           description,
           location,
           image_path,
           difficulty_level,
           rating,
-          category:categories(name),
-          continent:continents(name)
+          category:categories(name)
         )
       `)
       .single();
@@ -454,13 +455,13 @@ router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) =
         activity:activities (
           id,
           title,
+          slug,
           description,
           location,
           image_path,
           difficulty_level,
           rating,
-          category:categories(name),
-          continent:continents(name)
+          category:categories(name)
         )
       `)
       .single();
@@ -493,7 +494,6 @@ router.delete('/user/bucket-list/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'ID de l\'item bucket list requis' });
     }
 
-    // Vérifier que l'item appartient bien à l'utilisateur et le supprimer
     const { data: deletedItem, error } = await supabase
       .from('user_bucket_lists')
       .delete()
@@ -559,186 +559,235 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINTS PARTAGE SOCIAL
+// ✨ NOUVEAUX ENDPOINTS PARTAGE SOCIAL CLOUDINARY
 // ==========================================
 
-// GET /api/user/bucket-list/share/:type
+/**
+ * GET /api/user/bucket-list/share/:type
+ * Génère une image de partage social dynamique avec Cloudinary
+ */
 router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) => {
   try {
     const { type } = req.params;
-    const { activityIds, message } = req.query;
-
-    // Récupérer le profil utilisateur
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('first_name, last_name, pseudo')
-      .eq('user_id', req.userId)
-      .single();
-
-    const userName = profile ? 
-      `${profile.first_name} ${profile.last_name}` : 
-      profile?.pseudo || 'Un utilisateur';
-
-    let shareContent = {};
-
-    switch (type) {
-      case 'summary':
-        const { data: bucketList } = await supabase
-          .from('user_bucket_lists')
-          .select(`
-            *,
-            activity:activities (
-              title, 
-              category:categories(name),
-              continent:continents(name)
-            )
-          `)
-          .eq('user_id', req.userId)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        const totalActivities = bucketList?.length || 0;
-        const completedCount = bucketList?.filter(item => item.status === 'completed').length || 0;
-        const completionRate = totalActivities > 0 ? Math.round((completedCount / totalActivities) * 100) : 0;
-
-        shareContent = {
-          title: `🎯 Ma Bucket Liste`,
-          description: `${userName} a ${totalActivities} activités dans sa bucket list avec ${completionRate}% de réalisation !`,
-          text: `🌟 Ma bucket list compte ${totalActivities} expériences incroyables !\n✅ ${completedCount} déjà réalisées (${completionRate}%)\n\n#BucketList #Expériences #Aventure`,
-          url: `https://ma-bucket-liste.vercel.app`,
-          hashtags: ['BucketList', 'Expériences', 'Aventure', 'Voyage']
-        };
-        break;
-
-      case 'stats':
-        const { data: allBucketItems } = await supabase
-          .from('user_bucket_lists')
-          .select('status')
-          .eq('user_id', req.userId);
-
-        const statsData = {
-          total: allBucketItems?.length || 0,
-          completed: allBucketItems?.filter(item => item.status === 'completed').length || 0,
-          planned: allBucketItems?.filter(item => item.status === 'planned').length || 0
-        };
-
-        shareContent = {
-          title: `📊 Mes statistiques Bucket Liste`,
-          description: `${userName} : ${statsData.completed}/${statsData.total} activités réalisées`,
-          text: `📊 Mes stats de bucket list :\n\n🎯 ${statsData.total} activités au total\n✅ ${statsData.completed} réalisées\n📝 ${statsData.planned} planifiées\n📈 ${Math.round((statsData.completed / statsData.total) * 100) || 0}% de réalisation\n\n#BucketListStats #Objectifs2025`,
-          url: `https://ma-bucket-liste.vercel.app`,
-          hashtags: ['BucketListStats', 'Objectifs2025', 'Motivation'],
-          image: 'https://ma-bucket-liste.vercel.app/images/stats-share.jpg'
-        };
-        break;
-
-      case 'instagram':
-        // Contenu optimisé spécifiquement pour Instagram
-        const { data: instagramBucketList } = await supabase
-          .from('user_bucket_lists')
-          .select(`
-            *,
-            activity:activities (
-              title,
-              image_path,
-              category:categories(name),
-              continent:continents(name)
-            )
-          `)
-          .eq('user_id', req.userId)
-          .order('created_at', { ascending: false })
-          .limit(6); // Grille de 6 pour Instagram
-
-        const instagramStats = {
-          total: instagramBucketList?.length || 0,
-          completed: instagramBucketList?.filter(item => item.status === 'completed').length || 0
-        };
-
-        shareContent = {
-          title: `✨ Ma Bucket List d'expériences de rêve`,
-          description: `Suivez mes aventures ! ${instagramStats.completed}/${instagramStats.total} déjà réalisées 🌟`,
-          text: `✨ Ma bucket list d'expériences de rêve !\n\n🌟 ${instagramStats.total} aventures à vivre\n✅ ${instagramStats.completed} déjà cochées\n\n${instagramBucketList?.slice(0, 3).map((item, index) => `${index + 1}. ${item.activity.title} ${item.status === 'completed' ? '✅' : '📍'}`).join('\n') || ''}\n\nEt vous, quelle est votre prochaine aventure ?`,
-          url: `https://ma-bucket-liste.vercel.app`,
-          hashtags: ['BucketList', 'TravelGoals', 'LifeGoals', 'Adventure', 'Dreams', 'Wanderlust', 'Experience', 'Goals2025'],
-          image: 'https://ma-bucket-liste.vercel.app/images/instagram-template.jpg',
-          instagram_specific: {
-            story_text: `Ma bucket list 📋\n${instagramStats.completed}/${instagramStats.total} réalisées ✨`,
-            grid_layout: instagramBucketList?.slice(0, 6).map(item => ({
-              title: item.activity.title,
-              image: item.activity.image_path,
-              status: item.status
-            })) || []
-          }
-        };
-        break;
-
-      case 'tiktok':
-        // Contenu optimisé pour TikTok avec suggestions de vidéos
-        const { data: tiktokBucketList } = await supabase
-          .from('user_bucket_lists')
-          .select(`
-            *,
-            activity:activities (
-              title,
-              image_path,
-              category:categories(name),
-              continent:continents(name)
-            )
-          `)
-          .eq('user_id', req.userId)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        const completedActivities = tiktokBucketList?.filter(item => item.status === 'completed') || [];
-        const plannedActivities = tiktokBucketList?.filter(item => item.status === 'planned') || [];
-
-        shareContent = {
-          title: `🎬 Ma Bucket List TikTok`,
-          description: `Mes aventures en vidéo ! ${completedActivities.length} expériences réalisées`,
-          text: `🎬 Ma bucket list en mode TikTok !\n\n✅ ${completedActivities.length} expériences déjà vécues\n📍 ${plannedActivities.length} encore à découvrir\n\n${plannedActivities.slice(0, 3).map((item, index) => `${index + 1}. ${item.activity.title}`).join('\n') || ''}\n\nQui veut faire ça avec moi ? 🤗`,
-          url: `https://ma-bucket-liste.vercel.app`,
-          hashtags: ['BucketList', 'BucketListChallenge', 'TravelTok', 'LifeGoals', 'Adventure', 'Challenge', 'Goals2025', 'DreamLife'],
-          image: 'https://ma-bucket-liste.vercel.app/images/tiktok-template.jpg',
-          tiktok_specific: {
-            video_ideas: [
-              `Montrer ${Math.min(completedActivities.length, 5)} activités réalisées en 30 secondes`,
-              'Révéler votre prochaine aventure avec un effet de suspense',
-              'Before/After de vos plus belles réalisations',
-              'Challenge : "Devine mon prochain objectif"',
-              'Top 3 des activités qui ont changé votre vie'
-            ],
-            trending_sounds: [
-              'Adventure time music',
-              'Dreams come true audio',
-              'Travel vibes sound',
-              'Achievement unlocked sound'
-            ],
-            hooks: [
-              'POV: Tu as une bucket list de folie 🤯',
-              'Les 3 choses que je DOIS faire avant mes 30 ans',
-              'Ma bucket list vs la réalité 😅',
-              'Plot twist : j\'ai vraiment fait ça ! ✨'
-            ]
-          }
-        };
-        break;
-
-      default:
-        return res.status(400).json({ error: 'Type de partage non supporté' });
+    const userId = req.userId;
+    
+    // Validation du type
+    const validTypes = ['instagram', 'facebook', 'twitter', 'stories', 'all'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Type de partage invalide. Utilisez: instagram, facebook, twitter, stories, ou all'
+      });
     }
-
-    // Générer les liens de partage
-    const socialLinks = generateSocialLinks(shareContent);
-
-    res.json({
-      success: true,
-      shareContent,
-      socialLinks
-    });
-
+    
+    console.log(`[SHARE] Génération d'image ${type} pour user ${userId}`);
+    
+    // 1. Récupérer la bucket list complète
+    const { data: bucketList, error: bucketError } = await supabase
+      .from('user_bucket_lists')
+      .select(`
+        id,
+        status,
+        created_at,
+        updated_at,
+        activity:activities (
+          id,
+          slug,
+          title,
+          location
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (bucketError) {
+      console.error('[SHARE] Erreur Supabase bucket list:', bucketError);
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la récupération de la bucket list'
+      });
+    }
+    
+    // Vérifier qu'il y a au moins une activité
+    if (!bucketList || bucketList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Votre bucket list est vide. Ajoutez des activités avant de partager !',
+        helpText: 'Commencez par ajouter des activités à votre liste pour créer votre image de partage.'
+      });
+    }
+    
+    // 2. Séparer réalisées et à faire
+    const completed = bucketList.filter(item => item.status === 'completed');
+    const pending = bucketList.filter(item => 
+      item.status === 'planned' || item.status === 'in_progress'
+    );
+    
+    // 3. Prioriser réalisées, puis à faire (max 9)
+    const selectedActivities = [...completed, ...pending]
+      .slice(0, 9)
+      .map(item => ({
+        slug: item.activity.slug,
+        title: item.activity.title,
+        status: item.status
+      }));
+    
+    console.log(`[SHARE] ${selectedActivities.length} activités sélectionnées sur ${bucketList.length} (${completed.length} réalisées)`);
+    
+    // 4. Récupérer le profil utilisateur
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('first_name, pseudo')
+      .eq('user_id', userId)
+      .single();
+    
+    if (profileError) {
+      console.error('[SHARE] Erreur récupération profil:', profileError);
+    }
+    
+    const userFirstName = profile?.first_name || profile?.pseudo || 'Voyageur';
+    
+    // 5. Générer l'image Cloudinary
+    let result;
+    
+    if (type === 'all') {
+      // Générer toutes les variantes
+      const allImages = generateAllSocialImages(
+        selectedActivities,
+        userFirstName,
+        bucketList.length,
+        completed.length
+      );
+      
+      result = {
+        success: true,
+        stats: {
+          totalActivities: bucketList.length,
+          completedCount: completed.length,
+          pendingCount: pending.length,
+          completionRate: Math.round((completed.length / bucketList.length) * 100)
+        },
+        images: allImages,
+        shareLinks: generateCloudinaryShareLinks(allImages.instagram.imageUrl, userFirstName)
+      };
+    } else {
+      // Générer une seule image
+      const imageData = generateCloudinaryShareImage({
+        activities: selectedActivities,
+        userFirstName: userFirstName,
+        totalActivities: bucketList.length,
+        completedCount: completed.length,
+        format: type
+      });
+      
+      result = {
+        success: true,
+        stats: {
+          totalActivities: bucketList.length,
+          completedCount: completed.length,
+          pendingCount: pending.length,
+          completionRate: Math.round((completed.length / bucketList.length) * 100)
+        },
+        image: imageData,
+        shareLinks: generateCloudinaryShareLinks(imageData.imageUrl, userFirstName)
+      };
+    }
+    
+    console.log('[SHARE] Image(s) générée(s) avec succès');
+    return res.json(result);
+    
   } catch (error) {
-    console.error('Erreur génération contenu partage:', error);
-    res.status(500).json({ error: 'Erreur lors de la génération du contenu de partage' });
+    console.error('[SHARE] Erreur:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la génération de l\'image de partage',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * GET /api/user/bucket-list/share/preview
+ * Prévisualisation sans authentification (pour tests)
+ */
+router.get('/user/bucket-list/share/preview', async (req, res) => {
+  try {
+    console.log('[SHARE PREVIEW] Génération de prévisualisation de test');
+    
+    // Données de test
+    const testActivities = [
+      { slug: 'alhambra', title: 'Visiter l\'Alhambra', status: 'completed' },
+      { slug: 'surf', title: 'Apprendre le surf', status: 'completed' },
+      { slug: 'montgolfiere', title: 'Vol en montgolfière', status: 'completed' },
+      { slug: 'parachute', title: 'Saut en parachute', status: 'planned' },
+      { slug: 'plongee', title: 'Plongée sous-marine', status: 'planned' }
+    ];
+    
+    const imageData = generateCloudinaryShareImage({
+      activities: testActivities,
+      userFirstName: 'Redouane',
+      totalActivities: 14,
+      completedCount: 3,
+      format: 'instagram'
+    });
+    
+    return res.json({
+      success: true,
+      message: 'Prévisualisation de test générée avec succès',
+      image: imageData,
+      stats: {
+        totalActivities: 14,
+        completedCount: 3,
+        completionRate: 21
+      },
+      note: 'Ceci est une image de test avec des données fictives pour démonstration'
+    });
+    
+  } catch (error) {
+    console.error('[SHARE PREVIEW] Erreur:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la génération de la prévisualisation',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * POST /api/user/bucket-list/share/download
+ * Logger les téléchargements (analytics)
+ */
+router.post('/user/bucket-list/share/download', authenticateToken, async (req, res) => {
+  try {
+    const { imageUrl, format = 'instagram' } = req.body;
+    const userId = req.userId;
+    
+    if (!imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'URL de l\'image manquante'
+      });
+    }
+    
+    // Logger pour analytics
+    console.log(`[DOWNLOAD] User ${userId} télécharge image format ${format}`);
+    
+    // TODO: Sauvegarder en base pour analytics si besoin
+    
+    return res.json({
+      success: true,
+      downloadUrl: imageUrl,
+      filename: `ma-bucket-liste-${format}-${Date.now()}.jpg`,
+      message: 'Téléchargement enregistré avec succès'
+    });
+    
+  } catch (error) {
+    console.error('[DOWNLOAD] Erreur:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'enregistrement du téléchargement',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -746,6 +795,33 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
 // FONCTIONS UTILITAIRES
 // ==========================================
 
+/**
+ * Génère les liens de partage Cloudinary pour tous les réseaux
+ */
+function generateCloudinaryShareLinks(imageUrl, userName) {
+  const siteUrl = 'https://mabucketliste.fr';
+  const shareText = `Découvrez la bucket list de ${userName} sur Ma Bucket Liste ! 🌍✨`;
+  const hashtags = 'bucketlist,voyage,aventure,mabucketliste';
+  
+  return {
+    instagram: {
+      note: 'Instagram ne supporte pas le partage direct via URL web',
+      instructions: 'Téléchargez l\'image et partagez-la manuellement sur Instagram',
+      imageUrl: imageUrl
+    },
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(siteUrl)}&quote=${encodeURIComponent(shareText)}`,
+    twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(siteUrl)}&hashtags=${hashtags}`,
+    whatsapp: `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + siteUrl)}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(siteUrl)}`,
+    telegram: `https://t.me/share/url?url=${encodeURIComponent(siteUrl)}&text=${encodeURIComponent(shareText)}`,
+    email: `mailto:?subject=${encodeURIComponent('Ma Bucket Liste - ' + userName)}&body=${encodeURIComponent(shareText + '\n\n' + siteUrl)}`,
+    direct: imageUrl
+  };
+}
+
+/**
+ * Génère les liens de partage (version originale pour compatibilité)
+ */
 function generateSocialLinks(shareContent) {
   const encodedText = encodeURIComponent(shareContent.text);
   const encodedUrl = encodeURIComponent(shareContent.url);
@@ -755,20 +831,12 @@ function generateSocialLinks(shareContent) {
 
   return {
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
-    
     twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}&hashtags=${hashtags}`,
-    
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodedTitle}&summary=${encodedDescription}`,
-    
     whatsapp: `https://api.whatsapp.com/send?text=${encodedText}%20${encodedUrl}`,
-    
     telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
-    
-    pinterest: `https://pinterest.com/pin/create/button/?url=${encodedUrl}&description=${encodedText}&media=${encodeURIComponent(shareContent.image || 'https://ma-bucket-liste.vercel.app/images/default-share.jpg')}`,
-    
+    pinterest: `https://pinterest.com/pin/create/button/?url=${encodedUrl}&description=${encodedText}&media=${encodeURIComponent(shareContent.image || 'https://mabucketliste.fr/images/default-share.jpg')}`,
     reddit: `https://reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}`,
-    
-    // Instagram - Instructions pour partage manuel
     instagram: {
       type: 'manual',
       instructions: {
@@ -777,13 +845,11 @@ function generateSocialLinks(shareContent) {
         step3: 'Coller le texte en légende',
         text: shareContent.text,
         hashtags: shareContent.hashtags.map(tag => `#${tag}`).join(' '),
-        image_suggestion: shareContent.image || 'https://ma-bucket-liste.vercel.app/images/bucket-list-template.jpg'
+        image_suggestion: shareContent.image || 'https://mabucketliste.fr/images/bucket-list-template.jpg'
       },
       web_url: 'https://www.instagram.com'
     },
-    
-    // TikTok - Instructions pour partage manuel avec suggestions
-    tiktok: {
+     tiktok: {
       type: 'manual',
       instructions: {
         step1: 'Créer une vidéo montrant votre bucket list',
@@ -800,14 +866,11 @@ function generateSocialLinks(shareContent) {
       },
       web_url: 'https://www.tiktok.com'
     },
-    
-    // Snapchat - Partage via URL scheme
+
     snapchat: `https://www.snapchat.com/scan?attachmentUrl=${encodedUrl}`,
-    
-    // Copier le lien
+
     copy: shareContent.url,
     
-    // Partage natif (pour mobile)
     native: {
       title: shareContent.title,
       text: shareContent.text,
