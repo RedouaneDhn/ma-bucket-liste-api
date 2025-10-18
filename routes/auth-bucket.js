@@ -563,6 +563,53 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
 // ==========================================
 
 /**
+ * GET /api/user/bucket-list/share/preview
+ * Prévisualisation sans authentification (pour tests)
+ */
+router.get('/user/bucket-list/share/preview', async (req, res) => {
+  try {
+    console.log('[SHARE PREVIEW] Génération de prévisualisation de test');
+    
+    // Données de test
+    const testActivities = [
+      { slug: 'alhambra', title: 'Visiter l\'Alhambra', status: 'completed' },
+      { slug: 'surf', title: 'Apprendre le surf', status: 'completed' },
+      { slug: 'montgolfiere', title: 'Vol en montgolfière', status: 'completed' },
+      { slug: 'parachute', title: 'Saut en parachute', status: 'planned' },
+      { slug: 'plongee', title: 'Plongée sous-marine', status: 'planned' }
+    ];
+    
+    const imageData = generateCloudinaryShareImage({
+      activities: testActivities,
+      userFirstName: 'Redouane',
+      totalActivities: 14,
+      completedCount: 3,
+      format: 'instagram'
+    });
+    
+    return res.json({
+      success: true,
+      message: 'Prévisualisation de test générée avec succès',
+      image: imageData,
+      stats: {
+        totalActivities: 14,
+        completedCount: 3,
+        completionRate: 21
+      },
+      note: 'Ceci est une image de test avec des données fictives pour démonstration'
+    });
+    
+  } catch (error) {
+    console.error('[SHARE PREVIEW] Erreur:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la génération de la prévisualisation',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * GET /api/user/bucket-list/share/:type
  * Génère une image de partage social dynamique avec Cloudinary
  */
@@ -706,52 +753,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
   }
 });
 
-/**
- * GET /api/user/bucket-list/share/preview
- * Prévisualisation sans authentification (pour tests)
- */
-router.get('/user/bucket-list/share/preview', async (req, res) => {
-  try {
-    console.log('[SHARE PREVIEW] Génération de prévisualisation de test');
-    
-    // Données de test
-    const testActivities = [
-      { slug: 'alhambra', title: 'Visiter l\'Alhambra', status: 'completed' },
-      { slug: 'surf', title: 'Apprendre le surf', status: 'completed' },
-      { slug: 'montgolfiere', title: 'Vol en montgolfière', status: 'completed' },
-      { slug: 'parachute', title: 'Saut en parachute', status: 'planned' },
-      { slug: 'plongee', title: 'Plongée sous-marine', status: 'planned' }
-    ];
-    
-    const imageData = generateCloudinaryShareImage({
-      activities: testActivities,
-      userFirstName: 'Redouane',
-      totalActivities: 14,
-      completedCount: 3,
-      format: 'instagram'
-    });
-    
-    return res.json({
-      success: true,
-      message: 'Prévisualisation de test générée avec succès',
-      image: imageData,
-      stats: {
-        totalActivities: 14,
-        completedCount: 3,
-        completionRate: 21
-      },
-      note: 'Ceci est une image de test avec des données fictives pour démonstration'
-    });
-    
-  } catch (error) {
-    console.error('[SHARE PREVIEW] Erreur:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la génération de la prévisualisation',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+
 
 /**
  * POST /api/user/bucket-list/share/download
