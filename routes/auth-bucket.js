@@ -198,7 +198,7 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
 // ENDPOINTS BUCKET LIST
 // ==========================================
 
-// GET /api/user/bucket-list
+// GET /api/user/bucket-list - CORRIGÉ
 router.get('/user/bucket-list', authenticateToken, async (req, res) => {
   try {
     const { status, category, continent } = req.query;
@@ -206,25 +206,7 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
     let query = supabase
       .from('user_bucket_lists')
       .select(`
-        id,
-        user_id,
-        activity_id,
-        status,
-        date_added,
-        planned_date,
-        completed_date,
-        personal_notes,
-        rating,
-        review,
-        is_shared,
-        share_token,
-        personal_budget,
-        actual_cost,
-        created_at,
-        updated_at,
-        notes,
-        target_date,
-        priority,
+        *,
         activity:activities (
           id,
           title,
@@ -263,7 +245,12 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
     const { data: bucketListRaw, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      throw error;
+      console.error('Erreur récupération bucket list:', error);
+      return res.status(500).json({ 
+        success: false,
+        error: 'Erreur lors de la récupération de la bucket list',
+        details: error.message
+      });
     }
 
     // Formater les données
@@ -286,7 +273,7 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
         planned_date: item.planned_date,
         completed_date: item.completed_date,
         personal_notes: item.personal_notes,
-        user_rating: item.user_rating,
+        user_rating: item.rating, // ← IMPORTANT : renommé pour éviter conflit avec activity.rating
         review: item.review,
         is_shared: item.is_shared,
         share_token: item.share_token,
@@ -336,10 +323,10 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur récupération bucket list:', error);
+    console.error('Erreur serveur bucket list:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Erreur lors de la récupération de la bucket list' 
+      error: 'Erreur serveur lors de la récupération de la bucket list' 
     });
   }
 });
