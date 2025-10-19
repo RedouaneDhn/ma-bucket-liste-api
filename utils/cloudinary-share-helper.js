@@ -150,6 +150,14 @@ function generateCloudinaryShareImage(options) {
   // Obtenir le texte engageant
   const engagingText = getEngagingText(completedCount, totalActivities, userFirstName);
   
+  console.log('=== DEBUG CLOUDINARY ===');
+console.log('displayActivities:', displayActivities);
+displayActivities.forEach((activity, index) => {
+  console.log(`Activity ${index}:`, activity);
+  console.log(`  - cloudinary_public_id:`, activity.cloudinary_public_id);
+});
+console.log('========================');
+
   // Construire les transformations
   let transformations = [];
   
