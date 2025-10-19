@@ -614,7 +614,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
     console.log(`[SHARE] Génération d'image ${type} pour user ${userId}`);
     
     // 1. Récupérer la bucket list complète - AVEC slug pour Cloudinary
-    const { data: bucketList, error: bucketError } = await supabase
+    let { data: bucketList, error: bucketError } = await supabase
       .from('user_bucket_lists')
       .select(`
         id,
@@ -630,6 +630,29 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
+
+    // ✅ NOUVEAU : Récupérer les images Cloudinary
+if (!bucketError && bucketList && bucketList.length > 0) {
+  const activityIds = bucketList.map(item => item.activity.id);
+  const { data: images, error: imagesError } = await supabase
+    .from('activity_images')
+    .select('activity_id, cloudinary_public_id')
+    .in('activity_id', activityIds)
+    .eq('image_type', 'hero');
+
+  if (imagesError) {
+    console.warn('Erreur récupération images:', imagesError);
+  }
+
+  // Enrichir avec cloudinary_public_id
+  bucketList = bucketList.map(item => ({
+    ...item,
+    activity: {
+      ...item.activity,
+      cloudinary_public_id: images?.find(img => img.activity_id === item.activity.id)?.cloudinary_public_id || null
+    }
+  }));
+}  
     
     if (bucketError) {
       console.error('[SHARE] Erreur Supabase bucket list:', bucketError);
@@ -658,7 +681,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
     const selectedActivities = [...completed, ...pending]
       .slice(0, 9)
       .map(item => ({
-        slug: item.activity.slug,
+        cloudinary_public_id: item.activity.cloudinary_public_id,
         title: item.activity.title,
         status: item.status
       }));

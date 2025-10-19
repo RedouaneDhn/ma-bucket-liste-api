@@ -162,7 +162,9 @@ function generateCloudinaryShareImage(options) {
   // 3. Ajouter les images d'activités
   displayActivities.forEach((activity, index) => {
     const pos = positions[index];
-    const imagePath = `${CLOUDINARY_CONFIG.activitiesPath}:${activity.slug}-hero`;
+    const imagePath = activity.cloudinary_public_id 
+  ? activity.cloudinary_public_id.replace(/\//g, ':')
+  : `${CLOUDINARY_CONFIG.activitiesPath}:default-hero`; 
     
     // Image de l'activité
     transformations.push(
