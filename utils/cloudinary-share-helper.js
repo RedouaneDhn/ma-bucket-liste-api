@@ -1,306 +1,164 @@
 /**
- * Cloudinary Social Share Image Generator
- * Génère des images dynamiques pour le partage social avec grid d'activités
+ * Cloudinary Share Helper - Version Simple et Fonctionnelle
+ * Génère des URLs d'images pour le partage social
  */
 
-const CLOUDINARY_CONFIG = {
-  cloudName: 'dwiy55oxx',
-  logoPath: 'ma-bucket-liste/logo_xdetr5',
-  activitiesPath: 'ma-bucket-liste/activities',
-  fallbackImage: 'ma-bucket-liste/default-activity' // Image par défaut si hero manquante
+const CLOUDINARY_CLOUD_NAME = 'dwiy55oxx';
+const CLOUDINARY_BASE_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+/**
+ * Formats d'images pour chaque plateforme
+ */
+const SOCIAL_FORMATS = {
+  instagram: { width: 1080, height: 1080, crop: 'fill' },
+  facebook: { width: 1200, height: 630, crop: 'fill' },
+  twitter: { width: 1200, height: 675, crop: 'fill' },
+  stories: { width: 1080, height: 1920, crop: 'fill' }
 };
 
-const FORMATS = {
-  instagram: { width: 1080, height: 1080, name: 'square' },
-  facebook: { width: 1200, height: 630, name: 'rectangle' },
-  twitter: { width: 1200, height: 630, name: 'rectangle' },
-  stories: { width: 1080, height: 1920, name: 'vertical' }
-};
+/**
+ * Image de fallback si aucune image d'activité n'est disponible
+ */
+const FALLBACK_IMAGE = 'ma-bucket-liste/default-bucket-list';
 
 /**
- * Calcule le texte engageant selon le ratio d'activités réalisées
+ * Génère une URL Cloudinary simple avec resize
+ * @param {string} publicId - Public ID Cloudinary (ex: "ma-bucket-liste/activities/alhambra-hero")
+ * @param {number} width - Largeur cible
+ * @param {number} height - Hauteur cible
+ * @param {string} crop - Mode de crop ('fill', 'fit', 'scale')
+ * @returns {string} URL Cloudinary complète
  */
-function getEngagingText(completedCount, totalActivities, firstName) {
-  const ratio = totalActivities > 0 ? (completedCount / totalActivities) * 100 : 0;
+function generateSimpleImageUrl(publicId, width, height, crop = 'fill') {
+  // Nettoyer le publicId (enlever l'extension si présente)
+  let cleanPublicId = publicId.replace(/\.(jpg|jpeg|png|webp)$/i, '');
   
-  if (ratio >= 70) {
-    return {
-      emoji: '🔥',
-      title: 'EN FEU !',
-      subtitle: `${completedCount} réalisées sur ${totalActivities}`,
-      quote: 'Collectionner des moments,\npas des choses'
-    };
-  } else if (ratio >= 30) {
-    return {
-      emoji: '🚀',
-      title: 'EN PLEINE ACTION !',
-      subtitle: `${completedCount} cochées ✅ | ${totalActivities - completedCount} à vivre`,
-      quote: 'Chaque aventure commence\npar un premier pas'
-    };
-  } else {
-    return {
-      emoji: '🎯',
-      title: 'L\'AVENTURE COMMENCE !',
-      subtitle: `${completedCount}/${totalActivities} expériences`,
-      quote: 'Et vous, qu\'attendez-vous\npour vivre vos rêves ?'
-    };
-  }
+  // CORRECTION: Enlever le préfixe "ma-bucket-liste/" si présent
+  // Les images sont dans "activities/" directement dans Cloudinary
+  cleanPublicId = cleanPublicId.replace(/^ma-bucket-liste\//, '');
+  
+  // Construction de l'URL avec transformations simples
+  const transformations = [
+    `w_${width}`,
+    `h_${height}`,
+    `c_${crop}`,
+    'q_auto:good', // Qualité automatique optimisée
+    'f_auto'       // Format automatique (WebP si supporté)
+  ].join(',');
+  
+  return `${CLOUDINARY_BASE_URL}/${transformations}/${cleanPublicId}`;
 }
 
 /**
- * Calcule les positions du grid selon le nombre d'images
+ * Génère les URLs pour toutes les plateformes sociales
+ * @param {Array} userActivities - Liste des activités de l'utilisateur avec leurs images
+ * @returns {Object} URLs pour chaque plateforme
  */
-function calculateGridPositions(count, format) {
-  const { width, height } = FORMATS[format];
-  const positions = [];
+function generateSocialShareImages(userActivities) {
+  // Trouver la première activité avec une image
+  const activityWithImage = userActivities.find(
+    activity => activity.cloudinary_public_id
+  );
   
-  // Marges et espacement
-  const margin = 40;
-  const spacing = 20;
+  // Public ID à utiliser (première image ou fallback)
+  const publicId = activityWithImage 
+    ? activityWithImage.cloudinary_public_id 
+    : FALLBACK_IMAGE;
   
-  let cols, rows, imgSize;
+  // Générer les URLs pour chaque format
+  const images = {};
   
-  if (count === 1) {
-    // 1 image : plein écran avec marges
-    return [{
-      x: margin,
-      y: margin,
-      width: width - (margin * 2),
-      height: height - 400 // Laisser place pour le texte
-    }];
-  } else if (count <= 4) {
-    // 2-4 images : grid 2×2
-    cols = 2;
-    rows = Math.ceil(count / 2);
-    imgSize = (width - (margin * 2) - spacing) / 2;
-  } else if (count <= 6) {
-    // 5-6 images : grid 3×2
-    cols = 3;
-    rows = 2;
-    imgSize = (width - (margin * 2) - (spacing * 2)) / 3;
-  } else {
-    // 7-9 images : grid 3×3
-    cols = 3;
-    rows = 3;
-    imgSize = (width - (margin * 2) - (spacing * 2)) / 3;
+  for (const [platform, specs] of Object.entries(SOCIAL_FORMATS)) {
+    images[platform] = {
+      imageUrl: generateSimpleImageUrl(publicId, specs.width, specs.height, specs.crop),
+      width: specs.width,
+      height: specs.height,
+      format: platform === 'instagram' ? 'square' : 
+              platform === 'stories' ? 'portrait' : 'landscape'
+    };
   }
   
-  // Calculer les positions
-  for (let i = 0; i < Math.min(count, 9); i++) {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    
-    positions.push({
-      x: margin + (col * (imgSize + spacing)),
-      y: margin + (row * (imgSize + spacing)),
-      width: Math.floor(imgSize),
-      height: Math.floor(imgSize)
-    });
-  }
-  
-  return positions;
+  return images;
 }
 
 /**
- * Encode le texte pour URL Cloudinary
+ * Génère une URL avec overlay de texte (optionnel - pour amélioration future)
+ * @param {string} publicId - Public ID Cloudinary
+ * @param {Object} options - Options de format et texte
+ * @returns {string} URL avec overlay
  */
-function encodeCloudinaryText(text) {
-  return encodeURIComponent(text)
-    .replace(/\(/g, '%28')
-    .replace(/\)/g, '%29')
-    .replace(/!/g, '%21')
-    .replace(/'/g, '%27')
-    .replace(/\*/g, '%2A');
-}
-
-/**
- * Génère l'URL Cloudinary complète avec toutes les transformations
- */
-function generateCloudinaryShareImage(options) {
+function generateImageWithOverlay(publicId, options = {}) {
   const {
-    activities = [],
-    userFirstName = 'Voyageur',
-    totalActivities = 0,
-    completedCount = 0,
-    format = 'instagram'
+    width = 1080,
+    height = 1080,
+    title = '',
+    stats = ''
   } = options;
   
-  const formatConfig = FORMATS[format];
-  if (!formatConfig) {
-    throw new Error(`Format invalide: ${format}`);
-  }
+  const cleanPublicId = publicId.replace(/\.(jpg|jpeg|png|webp)$/i, '');
   
-  const { width, height } = formatConfig;
-  const baseUrl = `https://res.cloudinary.com/${CLOUDINARY_CONFIG.cloudName}/image/upload`;
-  
-  // Trier : réalisées en premier
-  const sortedActivities = activities.sort((a, b) => {
-    if (a.status === 'completed' && b.status !== 'completed') return -1;
-    if (a.status !== 'completed' && b.status === 'completed') return 1;
-    return 0;
-  });
-  
-  // Limiter à 9 max
-  const displayActivities = sortedActivities.slice(0, 9);
-  const remainingCount = Math.max(0, totalActivities - 9);
-  
-  // Calculer les positions du grid
-  const positions = calculateGridPositions(displayActivities.length, format);
-  
-  // Obtenir le texte engageant
-  const engagingText = getEngagingText(completedCount, totalActivities, userFirstName);
-  
-  console.log('=== DEBUG CLOUDINARY ===');
-console.log('displayActivities:', displayActivities);
-displayActivities.forEach((activity, index) => {
-  console.log(`Activity ${index}:`, activity);
-  console.log(`  - cloudinary_public_id:`, activity.cloudinary_public_id);
-});
-console.log('========================');
-
-  // Construire les transformations
-  let transformations = [];
-  
-  // 1. Créer le canvas de base avec fond dégradé
-  transformations.push(`w_${width},h_${height},c_fill,b_rgb:1a1a2e`);
-  
-  // 2. Ajouter un dégradé subtil (overlay)
-  transformations.push(`l_gradient:45:from_rgb:16213e_to_rgb:0f3460,w_${width},h_${height},o_30`);
-  
-  // 3. Ajouter les images d'activités
-  displayActivities.forEach((activity, index) => {
-    const pos = positions[index];
-    const imagePath = activity.cloudinary_public_id 
-  ? activity.cloudinary_public_id.replace(/\//g, ':')
-  : `${CLOUDINARY_CONFIG.activitiesPath}:default-hero`; 
+  const transformations = [
+    // Base image resize
+    `w_${width}`,
+    `h_${height}`,
+    `c_fill`,
     
-    // Image de l'activité
-    transformations.push(
-      `l_${imagePath},c_fill,w_${pos.width},h_${pos.height},g_north_west,x_${pos.x},y_${pos.y},r_10`
-    );
+    // Optional text overlay (si titre fourni)
+    ...(title ? [
+      `l_text:Arial_60_bold:${encodeURIComponent(title)}`,
+      'co_rgb:FFFFFF',
+      'g_south',
+      'y_100'
+    ] : []),
     
-    // Badge ✅ si activité réalisée
-    if (activity.status === 'completed') {
-      const badgeSize = Math.floor(pos.width * 0.25);
-      const badgeX = pos.x + pos.width - badgeSize - 10;
-      const badgeY = pos.y + 10;
-      
-      // Fond vert pour le badge
-      transformations.push(
-        `l_text:Arial_${Math.floor(badgeSize * 0.6)}_bold:✅,co_rgb:ffffff,b_rgb:00D66B,r_max,g_north_west,x_${badgeX},y_${badgeY}`
-      );
-    }
-    
-    // Badge "+X" sur la dernière image si plus de 9 activités
-    if (index === 8 && remainingCount > 0) {
-      // Overlay sombre sur toute l'image
-      transformations.push(
-        `l_text:Arial_1: ,w_${pos.width},h_${pos.height},b_rgb:000000,o_80,g_north_west,x_${pos.x},y_${pos.y},r_10`
-      );
-      
-      // Texte "+X"
-      const plusText = encodeCloudinaryText(`+${remainingCount}`);
-      transformations.push(
-        `l_text:Arial_${Math.floor(pos.width * 0.3)}_bold:${plusText},co_rgb:ffffff,g_north_west,x_${pos.x + pos.width / 2},y_${pos.y + pos.height / 2},fl_text_align_center`
-      );
-    }
-  });
+    'q_auto:good',
+    'f_auto'
+  ].join(',');
   
-  // 4. Zone de texte en bas avec fond semi-transparent
-  const textBoxHeight = 300;
-  const textBoxY = height - textBoxHeight;
-  
-  transformations.push(
-    `l_text:Arial_1: ,w_${width},h_${textBoxHeight},b_rgb:000000,o_85,g_south_west,x_0,y_0`
-  );
-  
-  // 5. Texte principal - Emoji + Titre
-  const titleText = encodeCloudinaryText(`${engagingText.emoji} ${engagingText.title}`);
-  transformations.push(
-    `l_text:Arial_52_bold:${titleText},co_rgb:ffffff,g_south,x_0,y_${textBoxHeight - 60}`
-  );
-  
-  // 6. Sous-titre (nombre d'activités)
-  const subtitleText = encodeCloudinaryText(engagingText.subtitle);
-  transformations.push(
-    `l_text:Arial_32:${subtitleText},co_rgb:ffffff,g_south,x_0,y_${textBoxHeight - 110}`
-  );
-  
-  // 7. Citation motivante (2 lignes)
-  const quoteLines = engagingText.quote.split('\n');
-  quoteLines.forEach((line, index) => {
-    const quoteLine = encodeCloudinaryText(`"${line}"`);
-    transformations.push(
-      `l_text:Arial_28_italic:${quoteLine},co_rgb:e0e0e0,g_south,x_0,y_${textBoxHeight - 160 - (index * 35)}`
-    );
-  });
-  
-  // 8. Logo + Nom en bas à gauche
-  transformations.push(
-    `l_${CLOUDINARY_CONFIG.logoPath},w_120,g_south_west,x_40,y_40`
-  );
-  
-  const nameText = encodeCloudinaryText(userFirstName);
-  transformations.push(
-    `l_text:Arial_24_bold:${nameText},co_rgb:ffffff,g_south_west,x_170,y_52`
-  );
-  
-  // 9. URL du site en bas à droite
-  transformations.push(
-    `l_text:Arial_20:mabucketliste.fr,co_rgb:e0e0e0,g_south_east,x_40,y_52`
-  );
-  
-  // Construire l'URL finale
-  const finalUrl = `${baseUrl}/${transformations.join('/')}/placeholder.jpg`;
-  
-  return {
-    imageUrl: finalUrl,
-    width: width,
-    height: height,
-    format: formatConfig.name
-  };
+  return `${CLOUDINARY_BASE_URL}/${transformations}/${cleanPublicId}`;
 }
 
 /**
- * Génère les liens de partage pour tous les réseaux sociaux
+ * Teste si une URL Cloudinary est accessible
+ * @param {string} url - URL à tester
+ * @returns {Promise<boolean>} true si l'image existe
  */
-function generateAllSocialImages(activities, userFirstName, totalActivities, completedCount) {
+async function testImageUrl(url) {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch (error) {
+    console.error('Erreur test image:', error);
+    return false;
+  }
+}
+
+/**
+ * Point d'entrée principal - génère toutes les images de partage
+ * @param {Array} userActivities - Activités de l'utilisateur
+ * @param {Object} stats - Statistiques de la bucket list
+ * @returns {Object} Toutes les données de partage
+ */
+function generateShareData(userActivities, stats) {
+  const images = generateSocialShareImages(userActivities);
+  
   return {
-    instagram: generateCloudinaryShareImage({
-      activities,
-      userFirstName,
-      totalActivities,
-      completedCount,
-      format: 'instagram'
-    }),
-    facebook: generateCloudinaryShareImage({
-      activities,
-      userFirstName,
-      totalActivities,
-      completedCount,
-      format: 'facebook'
-    }),
-    twitter: generateCloudinaryShareImage({
-      activities,
-      userFirstName,
-      totalActivities,
-      completedCount,
-      format: 'twitter'
-    }),
-    stories: generateCloudinaryShareImage({
-      activities,
-      userFirstName,
-      totalActivities,
-      completedCount,
-      format: 'stories'
-    })
+    success: true,
+    stats: {
+      totalActivities: stats.total || 0,
+      completedCount: stats.completed || 0,
+      pendingCount: stats.pending || 0,
+      completionRate: stats.completionRate || 0
+    },
+    images
   };
 }
 
-// Exports
 module.exports = {
-  generateCloudinaryShareImage,
-  generateAllSocialImages,
-  CLOUDINARY_CONFIG,
-  FORMATS
+  generateSocialShareImages,
+  generateSimpleImageUrl,
+  generateImageWithOverlay,
+  generateShareData,
+  testImageUrl,
+  SOCIAL_FORMATS
 };
