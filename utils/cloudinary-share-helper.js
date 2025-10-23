@@ -48,7 +48,8 @@ function cleanPublicId(publicId) {
   // Enlever l'extension
   let cleaned = publicId.replace(/\.(jpg|jpeg|png|webp)$/i, '');
   
-  // Enlever le préfixe ma-bucket-liste/ si présent
+  // NE PAS enlever activities/ car c'est le vrai chemin dans Cloudinary
+  // Enlever seulement ma-bucket-liste/ si présent
   cleaned = cleaned.replace(/^ma-bucket-liste\//, '');
   
   return cleaned;
@@ -134,15 +135,18 @@ function calculateGridPositions(imageCount, format) {
 function generateOverlayTransformation(publicId, position) {
   const { x, y, width, height } = position;
   
+  // Pour Cloudinary overlays: remplacer / par : dans le public ID
+  const layerId = publicId.replace(/\//g, ':');
+  
   return [
-    `l_${publicId.replace(/\//g, ':')}`,  // Layer
-    `w_${width}`,                          // Width
-    `h_${height}`,                         // Height
-    'c_fill',                              // Crop mode
-    'g_north_west',                        // Gravity (top-left)
-    `x_${x}`,                              // X position
-    `y_${y}`,                              // Y position
-    'fl_layer_apply'                       // Apply layer
+    `l_${layerId}`,      // Layer
+    `w_${width}`,        // Width
+    `h_${height}`,       // Height
+    'c_fill',            // Crop mode
+    'g_north_west',      // Gravity (top-left)
+    `x_${x}`,            // X position
+    `y_${y}`,            // Y position
+    'fl_layer_apply'     // Apply layer
   ].join(',');
 }
 
