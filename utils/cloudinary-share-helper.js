@@ -167,25 +167,24 @@ function generateCollageUrl(images, platform) {
   // Calculer les positions
   const positions = calculateGridPositions(limitedImages.length, format);
   
-  // Construire les transformations
-  const transformations = [
-    // Base : fond redimensionné
+  // Construire la transformation de base
+  const baseTransform = [
     `w_${format.width}`,
     `h_${format.height}`,
     'c_fill',
     'q_auto:good',
     'f_auto'
-  ];
+  ].join(',');
   
-  // Ajouter chaque image en overlay
+  // Construire les overlays
+  const overlays = [];
   for (let i = 0; i < limitedImages.length; i++) {
-    transformations.push(
-      generateOverlayTransformation(limitedImages[i], positions[i])
-    );
+    overlays.push(generateOverlayTransformation(limitedImages[i], positions[i]));
   }
   
-  // URL finale
-  return `${CLOUDINARY_BASE_URL}/${transformations.join('/')}/${BACKGROUND_IMAGE}`;
+  // URL finale : base + overlays séparés par /
+  const allTransforms = [baseTransform, ...overlays].join('/');
+  return `${CLOUDINARY_BASE_URL}/${allTransforms}/${BACKGROUND_IMAGE}`;
 }
 
 /**
