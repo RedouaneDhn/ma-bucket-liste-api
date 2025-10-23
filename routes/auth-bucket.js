@@ -705,25 +705,20 @@ if (!bucketError && bucketList && bucketList.length > 0) {
     let result;
     
     if (type === 'all') {
-      // Générer toutes les variantes
-      const allImages = generateAllSocialImages(
-        selectedActivities,
-        userFirstName,
-        bucketList.length,
-        completed.length
-      );
-      
-      result = {
-        success: true,
-        stats: {
-          totalActivities: bucketList.length,
-          completedCount: completed.length,
-          pendingCount: pending.length,
-          completionRate: Math.round((completed.length / bucketList.length) * 100)
-        },
-        images: allImages,
-        shareLinks: generateCloudinaryShareLinks(allImages.instagram.imageUrl, userFirstName)
-      };
+  // Générer toutes les variantes
+  const { generateShareData } = require('../utils/cloudinary-share-helper');
+  
+  const stats = {
+    total: bucketList.length,
+    completed: completed.length,
+    pending: pending.length,
+    completionRate: Math.round((completed.length / bucketList.length) * 100)
+  };
+  
+  const shareData = generateShareData(selectedActivities, stats);
+  
+  result = shareData;
+
     } else {
       // Générer une seule image
       const imageData = generateCloudinaryShareImage({
