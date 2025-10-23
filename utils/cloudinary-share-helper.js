@@ -3,7 +3,7 @@
  * Génère des URLs d'images pour le partage social
  */
 
-const CLOUDINARY_CLOUD_NAME = 'dwiy55oxx';
+const CLOUDINARY_CLOUD_NAME = 'dwly55oxx';
 const CLOUDINARY_BASE_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
 /**
