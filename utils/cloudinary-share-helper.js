@@ -1,143 +1,242 @@
 /**
- * Cloudinary Share Helper - Version Simple et Fonctionnelle
- * Génère des URLs d'images pour le partage social
+ * Cloudinary Share Helper - Version Collage Dynamique
+ * Génère des images de partage avec composition multi-images
  */
 
 const CLOUDINARY_CLOUD_NAME = 'dwly55oxx';
 const CLOUDINARY_BASE_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
+// Image de fond pour le collage
+const BACKGROUND_IMAGE = 'backgrounds/purple-gradient_iaa2rn';
+
 /**
- * Formats d'images pour chaque plateforme
+ * Formats d'images pour chaque plateforme sociale
  */
 const SOCIAL_FORMATS = {
-  instagram: { width: 1080, height: 1080, crop: 'fill' },
-  facebook: { width: 1200, height: 630, crop: 'fill' },
-  twitter: { width: 1200, height: 675, crop: 'fill' },
-  stories: { width: 1080, height: 1920, crop: 'fill' }
+  instagram: { 
+    width: 1080, 
+    height: 1080, 
+    crop: 'fill',
+    grid: { cols: 3, rows: 3, maxImages: 9 }
+  },
+  facebook: { 
+    width: 1200, 
+    height: 630, 
+    crop: 'fill',
+    grid: { cols: 4, rows: 2, maxImages: 8 }
+  },
+  twitter: { 
+    width: 1200, 
+    height: 675, 
+    crop: 'fill',
+    grid: { cols: 4, rows: 2, maxImages: 8 }
+  },
+  stories: { 
+    width: 1080, 
+    height: 1920, 
+    crop: 'fill',
+    grid: { cols: 3, rows: 5, maxImages: 9 }
+  }
 };
 
 /**
- * Image de fallback si aucune image d'activité n'est disponible
+ * Nettoie un public ID Cloudinary
  */
-const FALLBACK_IMAGE = 'ma-bucket-liste/default-bucket-list';
+function cleanPublicId(publicId) {
+  if (!publicId) return null;
+  
+  // Enlever l'extension
+  let cleaned = publicId.replace(/\.(jpg|jpeg|png|webp)$/i, '');
+  
+  // Enlever le préfixe ma-bucket-liste/ si présent
+  cleaned = cleaned.replace(/^ma-bucket-liste\//, '');
+  
+  return cleaned;
+}
 
 /**
- * Génère une URL Cloudinary simple avec resize
- * @param {string} publicId - Public ID Cloudinary (ex: "ma-bucket-liste/activities/alhambra-hero")
- * @param {number} width - Largeur cible
- * @param {number} height - Hauteur cible
- * @param {string} crop - Mode de crop ('fill', 'fit', 'scale')
- * @returns {string} URL Cloudinary complète
+ * Extrait les images des activités utilisateur
  */
-function generateSimpleImageUrl(publicId, width, height, crop = 'fill') {
-  // Nettoyer le publicId (enlever l'extension si présente)
-  let cleanPublicId = publicId.replace(/\.(jpg|jpeg|png|webp)$/i, '');
+function extractActivityImages(userActivities) {
+  const images = [];
   
-  // CORRECTION: Enlever le préfixe "ma-bucket-liste/" si présent
-  // Les images sont dans "activities/" directement dans Cloudinary
-  cleanPublicId = cleanPublicId.replace(/^ma-bucket-liste\//, '');
+  for (const activity of userActivities) {
+    // Cas 1: cloudinary_public_id direct sur l'activité
+    if (activity.cloudinary_public_id) {
+      images.push(cleanPublicId(activity.cloudinary_public_id));
+    }
+    // Cas 2: activity_images array
+    else if (activity.activity_images && Array.isArray(activity.activity_images)) {
+      for (const img of activity.activity_images) {
+        if (img.cloudinary_public_id) {
+          images.push(cleanPublicId(img.cloudinary_public_id));
+        }
+      }
+    }
+    // Cas 3: activities.activity_images
+    else if (activity.activities?.activity_images) {
+      for (const img of activity.activities.activity_images) {
+        if (img.cloudinary_public_id) {
+          images.push(cleanPublicId(img.cloudinary_public_id));
+        }
+      }
+    }
+  }
   
-  // Construction de l'URL avec transformations simples
-  const transformations = [
-    `w_${width}`,
-    `h_${height}`,
-    `c_${crop}`,
-    'q_auto:good', // Qualité automatique optimisée
-    'f_auto'       // Format automatique (WebP si supporté)
+  // Filtrer les nulls et dédupliquer
+  return [...new Set(images.filter(Boolean))];
+}
+
+/**
+ * Calcule les positions pour une grille d'images
+ */
+function calculateGridPositions(imageCount, format) {
+  const { width, height, grid } = format;
+  const { cols, rows, maxImages } = grid;
+  
+  const count = Math.min(imageCount, maxImages);
+  
+  // Marges et espacement
+  const margin = 40;
+  const spacing = 20;
+  
+  // Dimensions disponibles pour la grille
+  const availableWidth = width - (2 * margin);
+  const availableHeight = height - (2 * margin);
+  
+  // Dimensions de chaque cellule
+  const cellWidth = (availableWidth - (spacing * (cols - 1))) / cols;
+  const cellHeight = (availableHeight - (spacing * (rows - 1))) / rows;
+  
+  const positions = [];
+  
+  for (let i = 0; i < count; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    
+    const x = margin + (col * (cellWidth + spacing));
+    const y = margin + (row * (cellHeight + spacing));
+    
+    positions.push({
+      x: Math.round(x),
+      y: Math.round(y),
+      width: Math.round(cellWidth),
+      height: Math.round(cellHeight)
+    });
+  }
+  
+  return positions;
+}
+
+/**
+ * Génère les transformations Cloudinary pour un overlay d'image
+ */
+function generateOverlayTransformation(publicId, position) {
+  const { x, y, width, height } = position;
+  
+  return [
+    `l_${publicId.replace(/\//g, ':')}`,  // Layer
+    `w_${width}`,                          // Width
+    `h_${height}`,                         // Height
+    'c_fill',                              // Crop mode
+    'g_north_west',                        // Gravity (top-left)
+    `x_${x}`,                              // X position
+    `y_${y}`,                              // Y position
+    'fl_layer_apply'                       // Apply layer
   ].join(',');
+}
+
+/**
+ * Génère une URL de collage pour une plateforme
+ */
+function generateCollageUrl(images, platform) {
+  const format = SOCIAL_FORMATS[platform];
   
-  return `${CLOUDINARY_BASE_URL}/${transformations}/${cleanPublicId}`;
+  if (!format) {
+    throw new Error(`Format inconnu: ${platform}`);
+  }
+  
+  // Limiter aux N premières images selon la plateforme
+  const limitedImages = images.slice(0, format.grid.maxImages);
+  
+  if (limitedImages.length === 0) {
+    // Pas d'images : retourner juste le fond
+    return `${CLOUDINARY_BASE_URL}/w_${format.width},h_${format.height},c_fill,q_auto:good,f_auto/${BACKGROUND_IMAGE}`;
+  }
+  
+  // Calculer les positions
+  const positions = calculateGridPositions(limitedImages.length, format);
+  
+  // Construire les transformations
+  const transformations = [
+    // Base : fond redimensionné
+    `w_${format.width}`,
+    `h_${format.height}`,
+    'c_fill',
+    'q_auto:good',
+    'f_auto'
+  ];
+  
+  // Ajouter chaque image en overlay
+  for (let i = 0; i < limitedImages.length; i++) {
+    transformations.push(
+      generateOverlayTransformation(limitedImages[i], positions[i])
+    );
+  }
+  
+  // URL finale
+  return `${CLOUDINARY_BASE_URL}/${transformations.join('/')}/${BACKGROUND_IMAGE}`;
 }
 
 /**
  * Génère les URLs pour toutes les plateformes sociales
- * @param {Array} userActivities - Liste des activités de l'utilisateur avec leurs images
- * @returns {Object} URLs pour chaque plateforme
  */
 function generateSocialShareImages(userActivities) {
-  // Trouver la première activité avec une image
-  const activityWithImage = userActivities.find(
-    activity => activity.cloudinary_public_id
-  );
+  // Extraire toutes les images des activités
+  const images = extractActivityImages(userActivities);
   
-  // Public ID à utiliser (première image ou fallback)
-  const publicId = activityWithImage 
-    ? activityWithImage.cloudinary_public_id 
-    : FALLBACK_IMAGE;
+  console.log(`[CLOUDINARY] ${images.length} images trouvées pour le collage`);
   
-  // Générer les URLs pour chaque format
-  const images = {};
+  // Générer les URLs pour chaque plateforme
+  const result = {};
   
-  for (const [platform, specs] of Object.entries(SOCIAL_FORMATS)) {
-    images[platform] = {
-      imageUrl: generateSimpleImageUrl(publicId, specs.width, specs.height, specs.crop),
-      width: specs.width,
-      height: specs.height,
+  for (const [platform, format] of Object.entries(SOCIAL_FORMATS)) {
+    result[platform] = {
+      imageUrl: generateCollageUrl(images, platform),
+      width: format.width,
+      height: format.height,
       format: platform === 'instagram' ? 'square' : 
-              platform === 'stories' ? 'portrait' : 'landscape'
+              platform === 'stories' ? 'portrait' : 'landscape',
+      imagesCount: Math.min(images.length, format.grid.maxImages)
     };
   }
   
-  return images;
+  return result;
 }
 
 /**
- * Génère une URL avec overlay de texte (optionnel - pour amélioration future)
- * @param {string} publicId - Public ID Cloudinary
- * @param {Object} options - Options de format et texte
- * @returns {string} URL avec overlay
+ * Génère une URL simple (sans collage) pour une seule image
  */
-function generateImageWithOverlay(publicId, options = {}) {
-  const {
-    width = 1080,
-    height = 1080,
-    title = '',
-    stats = ''
-  } = options;
+function generateSimpleImageUrl(publicId, width, height, crop = 'fill') {
+  const cleanId = cleanPublicId(publicId);
   
-  const cleanPublicId = publicId.replace(/\.(jpg|jpeg|png|webp)$/i, '');
+  if (!cleanId) {
+    return `${CLOUDINARY_BASE_URL}/w_${width},h_${height},c_${crop},q_auto:good,f_auto/${BACKGROUND_IMAGE}`;
+  }
   
   const transformations = [
-    // Base image resize
     `w_${width}`,
     `h_${height}`,
-    `c_fill`,
-    
-    // Optional text overlay (si titre fourni)
-    ...(title ? [
-      `l_text:Arial_60_bold:${encodeURIComponent(title)}`,
-      'co_rgb:FFFFFF',
-      'g_south',
-      'y_100'
-    ] : []),
-    
+    `c_${crop}`,
     'q_auto:good',
     'f_auto'
   ].join(',');
   
-  return `${CLOUDINARY_BASE_URL}/${transformations}/${cleanPublicId}`;
+  return `${CLOUDINARY_BASE_URL}/${transformations}/${cleanId}`;
 }
 
 /**
- * Teste si une URL Cloudinary est accessible
- * @param {string} url - URL à tester
- * @returns {Promise<boolean>} true si l'image existe
- */
-async function testImageUrl(url) {
-  try {
-    const response = await fetch(url, { method: 'HEAD' });
-    return response.ok;
-  } catch (error) {
-    console.error('Erreur test image:', error);
-    return false;
-  }
-}
-
-/**
- * Point d'entrée principal - génère toutes les images de partage
- * @param {Array} userActivities - Activités de l'utilisateur
- * @param {Object} stats - Statistiques de la bucket list
- * @returns {Object} Toutes les données de partage
+ * Point d'entrée principal
  */
 function generateShareData(userActivities, stats) {
   const images = generateSocialShareImages(userActivities);
@@ -155,10 +254,9 @@ function generateShareData(userActivities, stats) {
 }
 
 module.exports = {
+  generateShareData,
   generateSocialShareImages,
   generateSimpleImageUrl,
-  generateImageWithOverlay,
-  generateShareData,
-  testImageUrl,
-  SOCIAL_FORMATS
+  SOCIAL_FORMATS,
+  CLOUDINARY_CLOUD_NAME
 };
