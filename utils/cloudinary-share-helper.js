@@ -48,9 +48,9 @@ function cleanPublicId(publicId) {
   // Enlever l'extension
   let cleaned = publicId.replace(/\.(jpg|jpeg|png|webp)$/i, '');
   
-  // NE PAS enlever activities/ car c'est le vrai chemin dans Cloudinary
-  // Enlever seulement ma-bucket-liste/ si présent
+  // Enlever les préfixes : les images sont à la racine dans Cloudinary
   cleaned = cleaned.replace(/^ma-bucket-liste\//, '');
+  cleaned = cleaned.replace(/^activities\//, '');
   
   return cleaned;
 }
