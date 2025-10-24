@@ -7,7 +7,7 @@ const CLOUDINARY_CLOUD_NAME = 'dwly55oxx';
 const CLOUDINARY_BASE_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
 // Image de fond pour le collage
-const BACKGROUND_IMAGE = 'backgrounds/purple-gradient_iaa2rn';
+const BACKGROUND_IMAGE = 'purple-gradient_iaa2rn';
 
 /**
  * Formats d'images pour chaque plateforme sociale
