@@ -634,11 +634,11 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
     // ✅ NOUVEAU : Récupérer les images Cloudinary
 if (!bucketError && bucketList && bucketList.length > 0) {
   const activityIds = bucketList.map(item => item.activity.id);
-  const { data: images, error: imagesError } = await supabase
-    .from('activity_images')
-    .select('activity_id, cloudinary_public_id')
-    .in('activity_id', activityIds)
-    .eq('image_type', 'hero');
+ const { data: images, error: imagesError } = await supabase
+  .from('activity_images')
+  .select('activity_id, cloudinary_public_id, image_type')
+  .in('activity_id', activityIds)
+  .eq('image_type', 'hero');
 
   if (imagesError) {
     console.warn('Erreur récupération images:', imagesError);
@@ -652,6 +652,9 @@ if (!bucketError && bucketList && bucketList.length > 0) {
       cloudinary_public_id: images?.find(img => img.activity_id === item.activity.id)?.cloudinary_public_id || null
     }
   }));
+  // 🔍 AJOUTER CES LOGS DE DEBUG
+console.log('📊 Images récupérées:', images);
+console.log('🔍 Premier item après mapping:', JSON.stringify(bucketList[0], null, 2));
 }  
     
     if (bucketError) {
@@ -704,8 +707,11 @@ if (!bucketError && bucketList && bucketList.length > 0) {
     // 5. Générer l'image Cloudinary
     let result;
     
-    if (type === 'all') {
-  // Générer toutes les variantes
+   if (type === 'all') {
+     console.log('🔥 DEBUT GENERATION IMAGES CLOUDINARY');
+  console.log('📊 selectedActivities:', selectedActivities.length);
+  
+
   const { generateShareData } = require('../utils/cloudinary-share-helper');
   
   const stats = {
@@ -715,11 +721,31 @@ if (!bucketError && bucketList && bucketList.length > 0) {
     completionRate: Math.round((completed.length / bucketList.length) * 100)
   };
   
-  const shareData = generateShareData(selectedActivities, stats);
-  
-  result = shareData;
-
-    } else {
+  // ⚠️ ATTENTION : La fonction est maintenant asynchrone
+  try {
+    const shareData = await generateShareData(
+      selectedActivities, 
+      stats,
+      userId // Passer l'ID utilisateur
+    );
+    result = shareData;
+    
+    // Optionnel : nettoyer les anciennes images (en arrière-plan)
+    const { cleanupOldShareImages } = require('../utils/cloudinary-share-helper');
+    cleanupOldShareImages(userId, 7).catch(err => 
+      console.warn('Nettoyage images échoué:', err.message)
+    );
+    
+  } catch (error) {
+    console.error('❌ Erreur génération images de partage:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Échec de la génération des images de partage',
+      details: error.message
+    });
+  }
+}
+    else {
       // Générer une seule image
       const imageData = generateCloudinaryShareImage({
         activities: selectedActivities,
