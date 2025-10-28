@@ -5,6 +5,7 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { generateShareLinkData } = require('../utils/shareTokenGenerator');
 
 // ✨ NOUVEAU : Import du helper Cloudinary
 const { 
@@ -17,7 +18,7 @@ const router = express.Router();
 // Configuration Supabase avec clé de service pour bypass RLS
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const { supabaseService: supabase } = require('../config/supabase-service');
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
@@ -203,39 +204,43 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
   try {
     const { status } = req.query;
 
-    let query = supabase
-      .from('user_bucket_lists')
-      .select(`
-        *,
-        activity:activities (
-          id,
-          title,
-          subtitle,
-          description,
-          location,
-          image_path,
-          image_alt,
-          url,
-          rating,
-          rating_count,
-          popularity_score,
-          estimated_budget_min,
-          estimated_budget_max,
-          duration_days,
-          difficulty_level,
-          best_season,
-          is_active,
-          is_featured,
-          category:categories (
-            id,
-            name,
-            slug,
-            icon,
-            color
-          )
-        )
-      `)
-      .eq('user_id', req.userId);
+   let query = supabase
+  .from('user_bucket_lists')
+  .select(`
+    *,
+    activity:activities (
+      id,
+      title,
+      subtitle,
+      description,
+      location,
+      image_path,
+      image_alt,
+      url,
+      rating,
+      rating_count,
+      popularity_score,
+      estimated_budget_min,
+      estimated_budget_max,
+      duration_days,
+      difficulty_level,
+      best_season,
+      is_active,
+      is_featured,
+      category:categories (
+        id,
+        name,
+        slug,
+        icon,
+        color
+      ),
+      activity_images!inner (
+        cloudinary_public_id,
+        image_type
+      )
+    )
+  `)
+  .eq('user_id', req.userId);
 
     if (status) {
       query = query.eq('status', status);
@@ -694,7 +699,7 @@ console.log('🔍 Premier item après mapping:', JSON.stringify(bucketList[0], n
     // 4. Récupérer le profil utilisateur
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('first_name, pseudo')
+      .select('first_name, last_name')
       .eq('user_id', userId)
       .single();
     
@@ -902,5 +907,195 @@ function generateSocialLinks(shareContent) {
     }
   };
 }
+/**
+ * POST /api/user/bucket-list/share/create
+ * Crée un lien de partage avec token unique pour une plateforme sociale
+ */
+router.post('/user/bucket-list/share/create', authenticateToken, async (req, res) => {
+  try {
+    const { platform, imageUrl, stats } = req.body;
+    const userId = req.user.id;
+    
+    console.log('📝 Création d\'un lien de partage:', { userId, platform });
+    
+    // 1. Validation des inputs
+    const validPlatforms = ['facebook', 'twitter', 'instagram', 'linkedin'];
+    
+    if (!platform || !validPlatforms.includes(platform)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Platform invalide. Doit être: facebook, twitter, instagram ou linkedin'
+      });
+    }
+    
+    if (!imageUrl || !imageUrl.startsWith('https://res.cloudinary.com/')) {
+      return res.status(400).json({
+        success: false,
+        error: 'imageUrl invalide. Doit être une URL Cloudinary valide'
+      });
+    }
+    
+    if (!stats || typeof stats !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'stats invalide. Doit être un objet avec totalActivities, completedCount, pendingCount, completionRate'
+      });
+    }
+    
+    const requiredStatsFields = ['totalActivities', 'completedCount', 'pendingCount', 'completionRate'];
+    const missingFields = requiredStatsFields.filter(field => !(field in stats));
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Champs manquants dans stats: ${missingFields.join(', ')}`
+      });
+    }
+    
+    // 2. Générer les données du lien de partage avec token unique
+    const shareLinkData = await generateShareLinkData(
+      supabase,
+      userId,
+      platform,
+      imageUrl,
+      stats
+    );
+    
+    console.log(`✅ Token unique généré: ${shareLinkData.share_token}`);
+    
+    // 3. Insérer en base de données
+    const { data: insertedLink, error: insertError } = await supabase
+      .from('share_links')
+      .insert([shareLinkData])
+      .select()
+      .single();
+    
+    if (insertError) {
+      console.error('❌ Erreur insertion lien de partage:', insertError);
+      throw insertError;
+    }
+    
+    console.log(`✅ Lien de partage créé avec succès (ID: ${insertedLink.id})`);
+    
+    // 4. Construire la réponse
+    const shareUrl = `${process.env.API_BASE_URL}/share/${insertedLink.share_token}`;
+    
+    res.json({
+      success: true,
+      shareLink: {
+        id: insertedLink.id,
+        token: insertedLink.share_token,
+        url: shareUrl,
+        platform: insertedLink.platform,
+        imageUrl: insertedLink.image_url,
+        stats: insertedLink.stats,
+        expiresAt: insertedLink.expires_at,
+        createdAt: insertedLink.created_at
+      },
+      message: 'Lien de partage créé avec succès'
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la création du lien de partage:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la création du lien de partage',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/user/bucket-list/share/analytics
+ * BONUS OPTIONNEL - Récupère les statistiques d'analytics des partages de l'utilisateur
+ */
+router.get('/user/bucket-list/share/analytics', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    console.log('📊 Récupération analytics pour user:', userId);
+    
+    // 1. Récupérer tous les liens de partage de l'utilisateur
+    const { data: shareLinks, error: fetchError } = await supabase
+      .from('share_links')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (fetchError) {
+      console.error('❌ Erreur récupération analytics:', fetchError);
+      throw fetchError;
+    }
+    
+    // 2. Calculer les statistiques globales
+    const totalShares = shareLinks.length;
+    const totalViews = shareLinks.reduce((sum, link) => sum + link.views_count, 0);
+    const totalClicks = shareLinks.reduce((sum, link) => sum + link.clicks_count, 0);
+    
+    // 3. Statistiques par plateforme
+    const platformStats = shareLinks.reduce((acc, link) => {
+      if (!acc[link.platform]) {
+        acc[link.platform] = {
+          shares: 0,
+          views: 0,
+          clicks: 0
+        };
+      }
+      
+      acc[link.platform].shares += 1;
+      acc[link.platform].views += link.views_count;
+      acc[link.platform].clicks += link.clicks_count;
+      
+      return acc;
+    }, {});
+    
+    // 4. Les 10 derniers partages
+    const recentShares = shareLinks.slice(0, 10).map(link => ({
+      id: link.id,
+      token: link.share_token,
+      url: `${process.env.API_BASE_URL}/share/${link.share_token}`,
+      platform: link.platform,
+      views: link.views_count,
+      clicks: link.clicks_count,
+      lastAccessed: link.last_accessed_at,
+      createdAt: link.created_at,
+      expiresAt: link.expires_at,
+      isActive: link.is_active && new Date() < new Date(link.expires_at)
+    }));
+    
+    // 5. Liens actifs vs expirés
+    const now = new Date();
+    const activeLinks = shareLinks.filter(link => 
+      link.is_active && new Date(link.expires_at) > now
+    ).length;
+    const expiredLinks = totalShares - activeLinks;
+    
+    console.log(`✅ Analytics calculées: ${totalShares} partages, ${totalViews} vues, ${totalClicks} clics`);
+    
+    res.json({
+      success: true,
+      analytics: {
+        global: {
+          totalShares,
+          totalViews,
+          totalClicks,
+          activeLinks,
+          expiredLinks,
+          averageClickRate: totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(2) : 0
+        },
+        byPlatform: platformStats,
+        recentShares
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération des analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la récupération des analytics',
+      details: error.message
+    });
+  }
+});
 
 module.exports = router;

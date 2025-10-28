@@ -79,6 +79,7 @@ const authLimiter = rateLimit({
 // ==========================================
 const authBucketRoutes = require('./routes/auth-bucket');
 const userProfileRoutes = require('./routes/user-profile');
+const shareRoutes = require('./routes/share');
 
 // ==========================================
 // 6. ROUTES PRINCIPALES (existantes)
@@ -298,6 +299,8 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
 // Utiliser les nouvelles routes d'authentification et bucket list
+// Route de partage social (DOIT être AVANT /api pour éviter les conflits)
+app.use('/share', shareRoutes);
 app.use('/api', authBucketRoutes);
 app.use('/api/user', userProfileRoutes);
 
@@ -352,7 +355,10 @@ app.use('*', (req, res) => {
       'PUT /api/user/profile',
       'POST /api/user/avatar',
       'DELETE /api/user/avatar',
-      'GET /api/user/bucket-list/share/:type (summary|stats|instagram|tiktok)'
+      'GET /api/user/bucket-list/share/:type (summary|stats|instagram|tiktok)',
+      'POST /api/user/bucket-list/share/create - Créer lien de partage',
+      'GET /api/user/bucket-list/share/analytics - Analytics des partages',
+     'GET /share/:token - Accéder à un lien de partage'
     ]
   });
 });
@@ -392,4 +398,7 @@ app.listen(PORT, () => {
   console.log(`   • GET  /api/user/bucket-list/share/tiktok - Partage TikTok`);
   console.log(`   • PUT  /api/user/bucket-list/:id/status - Changer statut`);
   console.log(`   • GET  /api/user/stats - Statistiques utilisateur`);
+  console.log(`   • POST /api/user/bucket-list/share/create - Créer lien de partage`);
+  console.log(`   • GET  /api/user/bucket-list/share/analytics - Analytics`);
+  console.log(`   • GET  /share/:token - Lien de partage public`);
 });
