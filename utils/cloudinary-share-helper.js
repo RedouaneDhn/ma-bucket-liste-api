@@ -218,8 +218,9 @@ async function generateShareData(userActivities, stats, userId) {
         // ✅ CORRECTION CRITIQUE : Ajouter le préfixe du dossier Cloudinary si manquant
         // Les images sont stockées dans ma-bucket-liste/activities/ sur Cloudinary
         // mais les IDs en base de données sont stockés sans ce préfixe
-        if (!publicId.includes('/')) {
-          publicId = `ma-bucket-liste/activities/${publicId}`;
+        // IMPORTANT : Pour les overlays Cloudinary, utiliser : au lieu de / pour les dossiers
+        if (!publicId.includes('/') && !publicId.includes(':')) {
+          publicId = `ma-bucket-liste:activities:${publicId}`;
           console.log(`  📁 Ajout du préfixe: ${item.cloudinary_public_id} → ${publicId}`);
         }
         
