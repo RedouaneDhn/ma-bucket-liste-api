@@ -203,16 +203,36 @@ async function generateCollageImage(imagePublicIds, platform, userId) {
  * @returns {Promise<object>} Données de partage avec toutes les images
  */
 async function generateShareData(userActivities, stats, userId) {
-      console.log('🔍 userActivities reçues:', JSON.stringify(userActivities[0], null, 2));
+  console.log('🔍 userActivities reçues:', JSON.stringify(userActivities[0], null, 2));
 
   try {
-    // Extraire les public IDs depuis activity.cloudinary_public_id
-   const imagePublicIds = userActivities
-  .filter(item => item.cloudinary_public_id)  // ← Directement dans item
-  .map(item => item.cloudinary_public_id)      // ← Directement dans item
-  .filter(Boolean);
+    // ✅ CORRECTION : Extraire les public IDs de manière robuste
+    // Supporter les deux structures possibles :
+    // - item.cloudinary_public_id (structure plate)
+    // - item.activity.cloudinary_public_id (structure imbriquée)
+    const imagePublicIds = userActivities
+      .filter(item => {
+        return item.cloudinary_public_id || item.activity?.cloudinary_public_id;
+      })
+      .map(item => {
+        // Récupérer le public ID depuis la bonne propriété
+        let publicId = item.cloudinary_public_id || item.activity?.cloudinary_public_id;
+        
+        if (!publicId) return null;
+        
+        // ✅ CORRECTION CRITIQUE : Ajouter le préfixe du dossier Cloudinary si manquant
+        // Les images sont stockées dans ma-bucket-liste/activities/ sur Cloudinary
+        // mais les IDs en base de données sont stockés sans ce préfixe
+        if (!publicId.includes('/')) {
+          publicId = `ma-bucket-liste/activities/${publicId}`;
+          console.log(`  📁 Ajout du préfixe: ${item.cloudinary_public_id || item.activity?.cloudinary_public_id} → ${publicId}`);
+        }
+        
+        return publicId;
+      })
+      .filter(Boolean);
     
-    console.log('🖼️ Public IDs extraits:', imagePublicIds);
+    console.log('🖼️ Public IDs extraits (avec préfixe):', imagePublicIds);
     
     if (imagePublicIds.length === 0) {
       throw new Error('Aucune image disponible dans les activités');
