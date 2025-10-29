@@ -206,17 +206,12 @@ async function generateShareData(userActivities, stats, userId) {
   console.log('🔍 userActivities reçues:', JSON.stringify(userActivities[0], null, 2));
 
   try {
-    // ✅ CORRECTION : Extraire les public IDs de manière robuste
-    // Supporter les deux structures possibles :
-    // - item.cloudinary_public_id (structure plate)
-    // - item.activity.cloudinary_public_id (structure imbriquée)
+    // ✅ CORRECTION : Extraire les public IDs
+    // La structure vient de auth-bucket.js ligne 837-843 : { cloudinary_public_id, title, status }
     const imagePublicIds = userActivities
-      .filter(item => {
-        return item.cloudinary_public_id || item.activity?.cloudinary_public_id;
-      })
+      .filter(item => item.cloudinary_public_id)
       .map(item => {
-        // Récupérer le public ID depuis la bonne propriété
-        let publicId = item.cloudinary_public_id || item.activity?.cloudinary_public_id;
+        let publicId = item.cloudinary_public_id;
         
         if (!publicId) return null;
         
@@ -225,7 +220,7 @@ async function generateShareData(userActivities, stats, userId) {
         // mais les IDs en base de données sont stockés sans ce préfixe
         if (!publicId.includes('/')) {
           publicId = `ma-bucket-liste/activities/${publicId}`;
-          console.log(`  📁 Ajout du préfixe: ${item.cloudinary_public_id || item.activity?.cloudinary_public_id} → ${publicId}`);
+          console.log(`  📁 Ajout du préfixe: ${item.cloudinary_public_id} → ${publicId}`);
         }
         
         return publicId;
