@@ -98,8 +98,14 @@ function buildOverlayTransformations(images, positions) {
   return images.map((publicId, index) => {
     const pos = positions[index];
     
+    // ✅ CORRECTION : Extraire juste le nom du fichier sans le chemin
+    // Cloudinary trouve automatiquement l'image dans son dossier
+    const fileName = publicId.includes(':') 
+      ? publicId.split(':').pop()  // ma-bucket-liste:activities:surf-hero_g3l7pg → surf-hero_g3l7pg
+      : publicId.split('/').pop();  // ma-bucket-liste/activities/surf-hero_g3l7pg → surf-hero_g3l7pg
+    
     return {
-      overlay: publicId,
+      overlay: fileName,  // ← Juste le nom du fichier
       width: pos.width,
       height: pos.height,
       crop: 'fill',
