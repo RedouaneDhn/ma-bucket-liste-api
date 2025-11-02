@@ -204,43 +204,40 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
   try {
     const { status } = req.query;
 
-   let query = supabase
-  .from('user_bucket_lists')
-  .select(`
-    *,
-    activity:activities (
-      id,
-      title,
-      subtitle,
-      description,
-      location,
-      image_path,
-      image_alt,
-      url,
-      rating,
-      rating_count,
-      popularity_score,
-      estimated_budget_min,
-      estimated_budget_max,
-      duration_days,
-      difficulty_level,
-      best_season,
-      is_active,
-      is_featured,
-      category:categories (
-        id,
-        name,
-        slug,
-        icon,
-        color
-      ),
-      activity_images!inner (
-        cloudinary_public_id,
-        image_type
-      )
-    )
-  `)
-  .eq('user_id', req.userId);
+    // 1️⃣ Récupérer la bucket list (SANS les images d'abord)
+    let query = supabase
+      .from('user_bucket_lists')
+      .select(`
+        *,
+        activity:activities (
+          id,
+          title,
+          subtitle,
+          description,
+          location,
+          image_path,
+          image_alt,
+          url,
+          rating,
+          rating_count,
+          popularity_score,
+          estimated_budget_min,
+          estimated_budget_max,
+          duration_days,
+          difficulty_level,
+          best_season,
+          is_active,
+          is_featured,
+          category:categories (
+            id,
+            name,
+            slug,
+            icon,
+            color
+          )
+        )
+      `)
+      .eq('user_id', req.userId);
 
     if (status) {
       query = query.eq('status', status);
@@ -257,7 +254,32 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
       });
     }
 
-    // Formater les données
+    // 2️⃣ ✅ CORRECTION : Récupérer les images Cloudinary en une seule requête
+    let imagesMap = {};
+    
+    if (bucketListRaw && bucketListRaw.length > 0) {
+      const activityIds = bucketListRaw.map(item => item.activity.id);
+      
+      const { data: images, error: imagesError } = await supabase
+        .from('activity_images')
+        .select('activity_id, cloudinary_public_id, image_type')
+        .in('activity_id', activityIds)
+        .eq('image_type', 'hero');
+
+      if (imagesError) {
+        console.warn('⚠️ Erreur récupération images:', imagesError);
+      } else if (images && images.length > 0) {
+        // Créer un map pour un accès rapide
+        imagesMap = images.reduce((acc, img) => {
+          acc[img.activity_id] = img.cloudinary_public_id;
+          return acc;
+        }, {});
+        
+        console.log(`✅ ${images.length} images Cloudinary récupérées`);
+      }
+    }
+
+    // 3️⃣ Formater les données avec cloudinary_public_id
     const bucketList = bucketListRaw?.map(item => {
       let estimatedBudget = 'Prix sur demande';
       if (item.activity.estimated_budget_min && item.activity.estimated_budget_max) {
@@ -308,6 +330,8 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
           best_season: item.activity.best_season,
           is_active: item.activity.is_active,
           is_featured: item.activity.is_featured,
+          // ✅ AJOUT CRUCIAL : cloudinary_public_id depuis le map
+          cloudinary_public_id: imagesMap[item.activity.id] || null,
           category: {
             id: item.activity.category?.id,
             name: item.activity.category?.name,
@@ -318,6 +342,10 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
         }
       };
     }) || [];
+
+    // 4️⃣ Log de debug
+    const withImages = bucketList.filter(i => i.activity.cloudinary_public_id);
+    console.log(`📊 Bucket list: ${bucketList.length} activités, ${withImages.length} avec images`);
 
     res.json({ 
       success: true,
@@ -617,6 +645,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
     }
     
     console.log(`[SHARE] Génération d'image ${type} pour user ${userId}`);
+ 
     
     // 1. Récupérer la bucket list complète - AVEC slug pour Cloudinary
     let { data: bucketList, error: bucketError } = await supabase
@@ -657,9 +686,7 @@ if (!bucketError && bucketList && bucketList.length > 0) {
       cloudinary_public_id: images?.find(img => img.activity_id === item.activity.id)?.cloudinary_public_id || null
     }
   }));
-  // 🔍 AJOUTER CES LOGS DE DEBUG
-console.log('📊 Images récupérées:', images);
-console.log('🔍 Premier item après mapping:', JSON.stringify(bucketList[0], null, 2));
+
 }  
     
     if (bucketError) {
