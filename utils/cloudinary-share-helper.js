@@ -191,15 +191,15 @@ function buildHeaderOverlay(formatKey) {
     const logoOverlayId = LOGO_CONFIG.publicId.replace(/\//g, ':');
 
   // Overlay du logo (SVG transparent)
-  overlays.push({
-    overlay: LOGO_CONFIG.publicId,
-    width: LOGO_CONFIG.width,
-    gravity: 'north_east', // Coin supérieur droit
-    x: LOGO_CONFIG.margin,
-    y: LOGO_CONFIG.margin,
-    opacity: LOGO_CONFIG.opacity,
-    flags: 'layer_apply'
-  });
+ overlays.push({
+  overlay: logoOverlayId,  // ✅ Utiliser logoOverlayId au lieu de LOGO_CONFIG.publicId
+  width: LOGO_CONFIG.width,
+  gravity: 'north_east',
+  x: LOGO_CONFIG.margin,
+  y: LOGO_CONFIG.margin,
+  opacity: LOGO_CONFIG.opacity,
+  flags: 'layer_apply'
+});
   
   console.log(`[HEADER] Logo ajouté - Position: top_right, Taille: ${LOGO_CONFIG.width}px`);
   
@@ -295,10 +295,6 @@ function buildFooterOverlay(formatKey, stats, destinationNames) {
   return overlays;
 }
 
-// ============================================
-// FONCTION: buildOverlayTransformations
-// Construit toutes les transformations (images + header + footer)
-// ============================================
 function buildOverlayTransformations(images, positions, formatKey, stats, destinationNames) {
   const allOverlays = [];
   
@@ -312,19 +308,20 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
       console.warn(`[OVERLAYS] Position manquante pour l'image ${index}`);
       return;
     }
+    
     const overlayId = publicId.replace(/\//g, ':');
-
+    
     allOverlays.push({
-      overlay: publicId,
+      overlay: overlayId,
       width: pos.width,
       height: pos.height,
       crop: 'fill',
-      gravity: 'auto', // Cloudinary détecte automatiquement le point focal
+      gravity: 'auto',
       x: pos.x,
       y: pos.y,
       flags: 'layer_apply'
     });
-  });
+  }); // ← Fermeture du forEach ICI !
   
   // 2. Ajouter le header (logo)
   const headerOverlays = buildHeaderOverlay(formatKey);
