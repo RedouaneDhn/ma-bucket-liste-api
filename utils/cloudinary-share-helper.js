@@ -194,7 +194,9 @@ console.log(`🔍 [DEBUG LOGO] logoOverlayId converti: ${logoOverlayId}`);
 
   // Overlay du logo (SVG transparent)
  overlays.push({
-  overlay: logoOverlayId,  // ✅ Utiliser logoOverlayId au lieu de LOGO_CONFIG.publicId
+  overlay: {
+    public_id: logoOverlayId  // ✅ Bon format
+  },
   width: LOGO_CONFIG.width,
   gravity: 'north_east',
   x: LOGO_CONFIG.margin,
@@ -316,15 +318,17 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
     console.log(`🔍 [DEBUG] overlayId converti: ${overlayId}`);
     
     allOverlays.push({
-      overlay: overlayId,
-      width: pos.width,
-      height: pos.height,
-      crop: 'fill',
-      gravity: 'auto',
-      x: pos.x,
-      y: pos.y,
-      flags: 'layer_apply'
-    });
+  overlay: {
+    public_id: overlayId  // ✅ Bon format
+  },
+  width: pos.width,
+  height: pos.height,
+  crop: 'fill',
+  gravity: 'auto',
+  x: pos.x,
+  y: pos.y,
+  flags: 'layer_apply'
+});
   }); // ← Fermeture du forEach ICI !
   
   // 2. Ajouter le header (logo)
