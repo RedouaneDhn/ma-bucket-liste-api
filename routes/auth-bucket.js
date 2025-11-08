@@ -269,6 +269,7 @@ router.get('/user/bucket-list', authenticateToken, async (req, res) => {
       if (imagesError) {
         console.warn('⚠️ Erreur récupération images:', imagesError);
       } else if (images && images.length > 0) {
+
         // Créer un map pour un accès rapide
         imagesMap = images.reduce((acc, img) => {
           acc[img.activity_id] = img.cloudinary_public_id;
@@ -665,29 +666,44 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    // ✅ NOUVEAU : Récupérer les images Cloudinary
-if (!bucketError && bucketList && bucketList.length > 0) {
-  const activityIds = bucketList.map(item => item.activity.id);
- const { data: images, error: imagesError } = await supabase
-  .from('activity_images')
-  .select('activity_id, cloudinary_public_id, image_type')
-  .in('activity_id', activityIds)
-  .eq('image_type', 'hero');
+  // ✅ CORRECTION : Récupérer les cloudinary_public_id comme dans /bucket-list
+    let imagesMap = {};
+    
+    if (bucketList && bucketList.length > 0) {
+      const activityIds = bucketList.map(item => item.activity.id);
+      
+      const { data: images, error: imagesError } = await supabase
+        .from('activity_images')
+        .select('activity_id, cloudinary_public_id, image_type')
+        .in('activity_id', activityIds)
+        .eq('image_type', 'hero');
 
-  if (imagesError) {
-    console.warn('Erreur récupération images:', imagesError);
-  }
-
-  // Enrichir avec cloudinary_public_id
-  bucketList = bucketList.map(item => ({
-    ...item,
-    activity: {
-      ...item.activity,
-      cloudinary_public_id: images?.find(img => img.activity_id === item.activity.id)?.cloudinary_public_id || null
+      if (imagesError) {
+        console.warn('⚠️ Erreur récupération images pour partage:', imagesError);
+      } else if (images && images.length > 0) {
+        // Créer un map pour un accès rapide
+        imagesMap = images.reduce((acc, img) => {
+          acc[img.activity_id] = img.cloudinary_public_id;
+          return acc;
+        }, {});
+        
+        console.log(`✅ ${images.length} images Cloudinary récupérées pour partage`);
+      }
     }
-  }));
 
-}  
+    // Enrichir bucketList avec cloudinary_public_id
+    bucketList = bucketList.map(item => ({
+      ...item,
+      activity: {
+        ...item.activity,
+        cloudinary_public_id: imagesMap[item.activity.id] || null
+      }
+    }));
+    
+    console.log('🔍 Bucket list pour partage:', bucketList.map(item => ({
+      title: item.activity.title,
+      cloudinary_public_id: item.activity.cloudinary_public_id
+    })));
     
     if (bucketError) {
       console.error('[SHARE] Erreur Supabase bucket list:', bucketError);
