@@ -193,10 +193,8 @@ function buildHeaderOverlay(formatKey) {
 console.log(`🔍 [DEBUG LOGO] logoOverlayId converti: ${logoOverlayId}`);
 
   // Overlay du logo (SVG transparent)
- overlays.push({
-  overlay: {
-    public_id: logoOverlayId  // ✅ Bon format
-  },
+overlays.push({
+  overlay: logoOverlayId,  // ✅ String directe, pas d'objet
   width: LOGO_CONFIG.width,
   gravity: 'north_east',
   x: LOGO_CONFIG.margin,
@@ -318,9 +316,7 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
     console.log(`🔍 [DEBUG] overlayId converti: ${overlayId}`);
     
     allOverlays.push({
-  overlay: {
-    public_id: overlayId  // ✅ Bon format
-  },
+  overlay: overlayId,  // ✅ String directe, pas d'objet
   width: pos.width,
   height: pos.height,
   crop: 'fill',
