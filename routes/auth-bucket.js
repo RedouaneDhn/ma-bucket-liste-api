@@ -722,22 +722,25 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
       });
     }
     
-    // 2. Séparer réalisées et à faire
-    const completed = bucketList.filter(item => item.status === 'completed');
-    const pending = bucketList.filter(item => 
-      item.status === 'planned' || item.status === 'in_progress'
-    );
-    
-    // 3. Prioriser réalisées, puis à faire (max 9)
-    const selectedActivities = [...completed, ...pending]
-      .slice(0, 9)
-      .map(item => ({
-        cloudinary_public_id: item.activity.cloudinary_public_id,
-        title: item.activity.title,
-        status: item.status
-      }));
-    
-    console.log(`[SHARE] ${selectedActivities.length} activités sélectionnées sur ${bucketList.length} (${completed.length} réalisées)`);
+  // 2. Séparer réalisées et à faire (APRÈS enrichissement avec images)
+const completed = bucketList.filter(item => item.status === 'completed');
+const pending = bucketList.filter(item => 
+  item.status === 'planned' || item.status === 'in_progress'
+);
+
+// 3. Prioriser réalisées, puis à faire (max 9)
+const selectedActivities = [...completed, ...pending]
+  .slice(0, 9)
+  .map(item => ({
+    cloudinary_public_id: item.activity.cloudinary_public_id, // Maintenant disponible !
+    title: item.activity.title,
+    status: item.status
+  }));
+
+console.log('🎯 Activités sélectionnées avec images:', selectedActivities.map(a => ({
+  title: a.title,
+  has_image: !!a.cloudinary_public_id
+})));
     
     // 4. Récupérer le profil utilisateur
     const { data: profile, error: profileError } = await supabase
@@ -778,11 +781,7 @@ router.get('/user/bucket-list/share/:type', authenticateToken, async (req, res) 
     );
     result = shareData;
     
-    // Optionnel : nettoyer les anciennes images (en arrière-plan)
-    const { cleanupOldShareImages } = require('../utils/cloudinary-share-helper');
-    cleanupOldShareImages(userId, 7).catch(err => 
-      console.warn('Nettoyage images échoué:', err.message)
-    );
+ 
     
   } catch (error) {
     console.error('❌ Erreur génération images de partage:', error);
