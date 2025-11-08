@@ -188,6 +188,8 @@ function buildHeaderOverlay(formatKey) {
   const format = SOCIAL_FORMATS[formatKey];
   const overlays = [];
   
+    const logoOverlayId = LOGO_CONFIG.publicId.replace(/\//g, ':');
+
   // Overlay du logo (SVG transparent)
   overlays.push({
     overlay: LOGO_CONFIG.publicId,
@@ -310,7 +312,8 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
       console.warn(`[OVERLAYS] Position manquante pour l'image ${index}`);
       return;
     }
-    
+    const overlayId = publicId.replace(/\//g, ':');
+
     allOverlays.push({
       overlay: publicId,
       width: pos.width,
