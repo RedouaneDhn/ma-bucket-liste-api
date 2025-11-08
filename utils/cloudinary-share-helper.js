@@ -349,15 +349,14 @@ async function generateShareData(bucketListItems, userId) {
     console.log(`[SHARE] User ID: ${userId}`);
     console.log(`[SHARE] Nombre d'activités dans la bucket list: ${bucketListItems.length}`);
     
-    // 1. Filtrer et préparer les images
-    const validItems = bucketListItems.filter(item => {
-      // Vérifier que l'item a bien une activité avec une image hero
-      const hasImage = item.activity?.cloudinary_public_id;
-      if (!hasImage) {
-        console.log(`[SHARE] ⚠️  Activité sans image: ${item.activity?.title || 'Unknown'}`);
-      }
-      return hasImage;
-    });
+  const validItems = bucketListItems.filter(item => {
+  // ✅ CORRECTION : Les données sont déjà aplaties (pas de .activity)
+  const hasImage = item.cloudinary_public_id; // Directement à la racine
+  if (!hasImage) {
+    console.log(`[SHARE] ⚠️  Activité sans image: ${item.title || 'Unknown'}`);
+  }
+  return hasImage;
+});
     
     console.log(`[SHARE] Activités avec images valides: ${validItems.length}`);
     
@@ -367,24 +366,23 @@ async function generateShareData(bucketListItems, userId) {
     
     // 2. Extraire les cloudinary_public_id et ajouter le préfixe si nécessaire
     const imagePublicIds = validItems.map(item => {
-      let publicId = item.activity.cloudinary_public_id;
-      
-      // Ajouter le préfixe ma-bucket-liste:activities: si pas déjà présent
-      if (!publicId.includes(':') && !publicId.includes('/')) {
-        publicId = `ma-bucket-liste:activities:${publicId}`;
-      }
-      
-      return publicId;
-    });
+  let publicId = item.cloudinary_public_id; // ✅ Pas de .activity
+  
+  // Ajouter le préfixe ma-bucket-liste:activities: si pas déjà présent
+  if (!publicId.includes(':') && !publicId.includes('/')) {
+    publicId = `ma-bucket-liste:activities:${publicId}`;
+  }
+  
+  return publicId;
+});
     
     console.log(`[SHARE] Images à utiliser: ${imagePublicIds.slice(0, 3).join(', ')}...`);
     
     // 3. Extraire les noms des destinations (pour le footer)
     const destinationNames = validItems.map(item => {
-      const title = item.activity?.title || 'Activité';
-      // Limiter à 15 caractères pour éviter le débordement
-      return title.length > 15 ? title.substring(0, 15) + '...' : title;
-    });
+  const title = item.title || 'Activité'; // ✅ Pas de .activity
+  return title.length > 15 ? title.substring(0, 15) + '...' : title;
+});
     
     // 4. Calculer les stats
     const stats = {
