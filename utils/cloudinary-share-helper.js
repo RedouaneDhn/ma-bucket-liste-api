@@ -189,6 +189,8 @@ function buildHeaderOverlay(formatKey) {
   const overlays = [];
   
     const logoOverlayId = LOGO_CONFIG.publicId.replace(/\//g, ':');
+    console.log(`🔍 [DEBUG LOGO] publicId original: ${LOGO_CONFIG.publicId}`);
+console.log(`🔍 [DEBUG LOGO] logoOverlayId converti: ${logoOverlayId}`);
 
   // Overlay du logo (SVG transparent)
  overlays.push({
@@ -310,6 +312,8 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
     }
     
     const overlayId = publicId.replace(/\//g, ':');
+    console.log(`🔍 [DEBUG] publicId original: ${publicId}`);
+    console.log(`🔍 [DEBUG] overlayId converti: ${overlayId}`);
     
     allOverlays.push({
       overlay: overlayId,
