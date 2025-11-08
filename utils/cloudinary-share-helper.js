@@ -47,7 +47,7 @@ const SOCIAL_FORMATS = {
 
 // Configuration du logo
 const LOGO_CONFIG = {
-  publicId: 'ma-bucket-liste:logo_xdetr5', // Format Cloudinary avec :
+  publicId: 'ma-bucket-liste/logo_xdetr5', // Format Cloudinary avec :
   width: 120,
   position: 'top_right', // coin supérieur droit
   margin: 20,
@@ -368,9 +368,8 @@ async function generateShareData(bucketListItems, stats, userId) {
     const imagePublicIds = validItems.map(item => {
   let publicId = item.cloudinary_public_id; // ✅ Pas de .activity
   
-  // Ajouter le préfixe ma-bucket-liste:activities: si pas déjà présent
-  if (!publicId.includes(':') && !publicId.includes('/')) {
-    publicId = `ma-bucket-liste:activities:${publicId}`;
+   if (!publicId.includes('/')) {
+    publicId = `ma-bucket-liste/activities/${publicId}`;
   }
   
   return publicId;
