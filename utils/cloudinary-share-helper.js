@@ -340,7 +340,7 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
 // FONCTION: generateShareData
 // Fonction principale qui génère les 4 collages
 // ============================================
-async function generateShareData(bucketListItems, userId) {
+async function generateShareData(bucketListItems, stats, userId) {
   try {
     console.log('\n========================================');
     console.log('🚀 GÉNÉRATION DES COLLAGES CLOUDINARY');
@@ -384,13 +384,7 @@ async function generateShareData(bucketListItems, userId) {
   return title.length > 15 ? title.substring(0, 15) + '...' : title;
 });
     
-    // 4. Calculer les stats
-    const stats = {
-      total: bucketListItems.length,
-      completed: bucketListItems.filter(item => item.status === 'completed').length,
-      inProgress: bucketListItems.filter(item => item.status === 'in_progress').length,
-      planned: bucketListItems.filter(item => item.status === 'planned').length
-    };
+   
     
     console.log(`[SHARE] Stats: ${stats.completed}/${stats.total} réalisées`);
     
