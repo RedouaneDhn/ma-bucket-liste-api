@@ -343,14 +343,15 @@ async function generateShareData(bucketListItems, stats, userId) {
     const destinationsToUse = [];
     
     bucketListItems.forEach(item => {
-      if (item.activity && item.activity.cloudinary_public_id) {
-        let publicId = item.activity.cloudinary_public_id;
+      // ✅ Les données sont directement sur item, pas sur item.activity
+      if (item.cloudinary_public_id) {
+        let publicId = item.cloudinary_public_id;
         
         // ✅ Les public_ids sont déjà au bon format (sans préfixe)
         imagesToUse.push(publicId);
         
-        if (item.activity.destination_name) {
-          destinationsToUse.push(item.activity.destination_name);
+        if (item.destination_name) {
+          destinationsToUse.push(item.destination_name);
         }
       }
     });
