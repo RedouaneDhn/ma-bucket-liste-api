@@ -188,20 +188,25 @@ function buildHeaderOverlay(formatKey) {
   const format = SOCIAL_FORMATS[formatKey];
   const overlays = [];
   
-    const logoOverlayId = LOGO_CONFIG.publicId.replace(/\//g, ':');
-    console.log(`🔍 [DEBUG LOGO] publicId original: ${LOGO_CONFIG.publicId}`);
-console.log(`🔍 [DEBUG LOGO] logoOverlayId converti: ${logoOverlayId}`);
+  // ✅ CORRECTION : Extraire juste le nom du fichier du logo
+  // Cloudinary trouve automatiquement l'image dans son dossier
+  const logoFileName = LOGO_CONFIG.publicId.includes(':')
+    ? LOGO_CONFIG.publicId.split(':').pop()
+    : LOGO_CONFIG.publicId.split('/').pop();
+  
+  console.log(`🔍 [DEBUG LOGO] publicId original: ${LOGO_CONFIG.publicId}`);
+  console.log(`🔍 [DEBUG LOGO] logoFileName extrait: ${logoFileName}`);
 
   // Overlay du logo (SVG transparent)
-overlays.push({
-  overlay: logoOverlayId,  // ✅ String directe, pas d'objet
-  width: LOGO_CONFIG.width,
-  gravity: 'north_east',
-  x: LOGO_CONFIG.margin,
-  y: LOGO_CONFIG.margin,
-  opacity: LOGO_CONFIG.opacity,
-  flags: 'layer_apply'
-});
+  overlays.push({
+    overlay: logoFileName,  // ✅ logo_xdetr5 au lieu de ma-bucket-liste:logo_xdetr5
+    width: LOGO_CONFIG.width,
+    gravity: 'north_east',
+    x: LOGO_CONFIG.margin,
+    y: LOGO_CONFIG.margin,
+    opacity: LOGO_CONFIG.opacity,
+    flags: 'layer_apply'
+  });
   
   console.log(`[HEADER] Logo ajouté - Position: top_right, Taille: ${LOGO_CONFIG.width}px`);
   
@@ -297,6 +302,10 @@ function buildFooterOverlay(formatKey, stats, destinationNames) {
   return overlays;
 }
 
+// ============================================
+// FONCTION: buildOverlayTransformations
+// Construit tous les overlays (images + header + footer)
+// ============================================
 function buildOverlayTransformations(images, positions, formatKey, stats, destinationNames) {
   const allOverlays = [];
   
@@ -311,21 +320,26 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
       return;
     }
     
-    const overlayId = publicId.replace(/\//g, ':');
+    // ✅ CORRECTION : Extraire UNIQUEMENT le nom du fichier
+    // Cloudinary trouve automatiquement l'image dans son dossier
+    const fileName = publicId.includes(':') 
+      ? publicId.split(':').pop()  // ma-bucket-liste:activities:surf-hero_g3l7pg → surf-hero_g3l7pg
+      : publicId.split('/').pop();  // ma-bucket-liste/activities/surf-hero_g3l7pg → surf-hero_g3l7pg
+    
     console.log(`🔍 [DEBUG] publicId original: ${publicId}`);
-    console.log(`🔍 [DEBUG] overlayId converti: ${overlayId}`);
+    console.log(`🔍 [DEBUG] fileName extrait: ${fileName}`);
     
     allOverlays.push({
-  overlay: overlayId,  // ✅ String directe, pas d'objet
-  width: pos.width,
-  height: pos.height,
-  crop: 'fill',
-  gravity: 'auto',
-  x: pos.x,
-  y: pos.y,
-  flags: 'layer_apply'
-});
-  }); // ← Fermeture du forEach ICI !
+      overlay: fileName,  // ✅ Juste le nom : surf-hero_g3l7pg
+      width: pos.width,
+      height: pos.height,
+      crop: 'fill',
+      gravity: 'auto',
+      x: pos.x,
+      y: pos.y,
+      flags: 'layer_apply'
+    });
+  });
   
   // 2. Ajouter le header (logo)
   const headerOverlays = buildHeaderOverlay(formatKey);
@@ -353,14 +367,14 @@ async function generateShareData(bucketListItems, stats, userId) {
     console.log(`[SHARE] User ID: ${userId}`);
     console.log(`[SHARE] Nombre d'activités dans la bucket list: ${bucketListItems.length}`);
     
-  const validItems = bucketListItems.filter(item => {
-  // ✅ CORRECTION : Les données sont déjà aplaties (pas de .activity)
-  const hasImage = item.cloudinary_public_id; // Directement à la racine
-  if (!hasImage) {
-    console.log(`[SHARE] ⚠️  Activité sans image: ${item.title || 'Unknown'}`);
-  }
-  return hasImage;
-});
+    const validItems = bucketListItems.filter(item => {
+      // ✅ CORRECTION : Les données sont déjà aplaties (pas de .activity)
+      const hasImage = item.cloudinary_public_id; // Directement à la racine
+      if (!hasImage) {
+        console.log(`[SHARE] ⚠️  Activité sans image: ${item.title || 'Unknown'}`);
+      }
+      return hasImage;
+    });
     
     console.log(`[SHARE] Activités avec images valides: ${validItems.length}`);
     
@@ -370,24 +384,22 @@ async function generateShareData(bucketListItems, stats, userId) {
     
     // 2. Extraire les cloudinary_public_id et ajouter le préfixe si nécessaire
     const imagePublicIds = validItems.map(item => {
-  let publicId = item.cloudinary_public_id; // ✅ Pas de .activity
-  
-   if (!publicId.includes('/')) {
-    publicId = `ma-bucket-liste/activities/${publicId}`;
-  }
-  
-  return publicId;
-});
+      let publicId = item.cloudinary_public_id; // ✅ Pas de .activity
+      
+      if (!publicId.includes('/')) {
+        publicId = `ma-bucket-liste/activities/${publicId}`;
+      }
+      
+      return publicId;
+    });
     
     console.log(`[SHARE] Images à utiliser: ${imagePublicIds.slice(0, 3).join(', ')}...`);
     
     // 3. Extraire les noms des destinations (pour le footer)
     const destinationNames = validItems.map(item => {
-  const title = item.title || 'Activité'; // ✅ Pas de .activity
-  return title.length > 15 ? title.substring(0, 15) + '...' : title;
-});
-    
-   
+      const title = item.title || 'Activité'; // ✅ Pas de .activity
+      return title.length > 15 ? title.substring(0, 15) + '...' : title;
+    });
     
     console.log(`[SHARE] Stats: ${stats.completed}/${stats.total} réalisées`);
     
