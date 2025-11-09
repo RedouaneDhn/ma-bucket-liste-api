@@ -188,18 +188,13 @@ function buildHeaderOverlay(formatKey) {
   const format = SOCIAL_FORMATS[formatKey];
   const overlays = [];
   
-  // ✅ CORRECTION : Extraire juste le nom du fichier du logo
-  // Cloudinary trouve automatiquement l'image dans son dossier
-  const logoFileName = LOGO_CONFIG.publicId.includes(':')
-    ? LOGO_CONFIG.publicId.split(':').pop()
-    : LOGO_CONFIG.publicId.split('/').pop();
-  
   console.log(`🔍 [DEBUG LOGO] publicId original: ${LOGO_CONFIG.publicId}`);
-  console.log(`🔍 [DEBUG LOGO] logoFileName extrait: ${logoFileName}`);
 
-  // Overlay du logo (SVG transparent)
+  // ✅ CORRECTION : Utiliser { public_id: "chemin/complet" } pour les overlays avec dossiers
   overlays.push({
-    overlay: logoFileName,  // ✅ logo_xdetr5 au lieu de ma-bucket-liste:logo_xdetr5
+    overlay: {
+      public_id: LOGO_CONFIG.publicId  // ✅ ma-bucket-liste/logo_xdetr5
+    },
     width: LOGO_CONFIG.width,
     gravity: 'north_east',
     x: LOGO_CONFIG.margin,
@@ -320,17 +315,14 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
       return;
     }
     
-    // ✅ CORRECTION : Extraire UNIQUEMENT le nom du fichier
-    // Cloudinary trouve automatiquement l'image dans son dossier
-    const fileName = publicId.includes(':') 
-      ? publicId.split(':').pop()  // ma-bucket-liste:activities:surf-hero_g3l7pg → surf-hero_g3l7pg
-      : publicId.split('/').pop();  // ma-bucket-liste/activities/surf-hero_g3l7pg → surf-hero_g3l7pg
-    
     console.log(`🔍 [DEBUG] publicId original: ${publicId}`);
-    console.log(`🔍 [DEBUG] fileName extrait: ${fileName}`);
     
+    // ✅ CORRECTION : Pour les overlays avec dossiers, utiliser { public_id: "chemin/complet" }
+    // Cloudinary SDK nécessite cette syntaxe pour les images dans des sous-dossiers
     allOverlays.push({
-      overlay: fileName,  // ✅ Juste le nom : surf-hero_g3l7pg
+      overlay: {
+        public_id: publicId  // ✅ Objet avec le chemin complet : ma-bucket-liste/activities/surf-hero_g3l7pg
+      },
       width: pos.width,
       height: pos.height,
       crop: 'fill',
