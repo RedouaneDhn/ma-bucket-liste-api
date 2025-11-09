@@ -404,8 +404,8 @@ async function generateShareData(bucketListItems, stats, userId) {
           ...overlays
         ];
         
-        // Utiliser explicit() avec l'image de fond
-        const backgroundPublicId = 'ma-bucket-liste/backgrounds/purple-gradient_laa2rn';
+        // ✅ CORRECTION: Utiliser le bon public ID sans préfixe
+        const backgroundPublicId = 'purple-gradient_iaa2rn';
         
         const explicitResult = await cloudinary.uploader.explicit(
           backgroundPublicId,
