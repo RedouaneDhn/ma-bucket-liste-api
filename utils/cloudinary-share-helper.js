@@ -47,7 +47,7 @@ const SOCIAL_FORMATS = {
 
 // Configuration du logo
 const LOGO_CONFIG = {
-  publicId: 'ma-bucket-liste/logo_xdetr5', // Format Cloudinary avec :
+  publicId: 'logo_xdetr5', // ✅ Public ID correct (pas de préfixe)
   width: 120,
   position: 'top_right', // coin supérieur droit
   margin: 20,
@@ -188,13 +188,10 @@ function buildHeaderOverlay(formatKey) {
   const format = SOCIAL_FORMATS[formatKey];
   const overlays = [];
   
-  console.log(`🔍 [DEBUG LOGO] publicId original: ${LOGO_CONFIG.publicId}`);
+  console.log(`🔍 [DEBUG LOGO] publicId: ${LOGO_CONFIG.publicId}`);
 
-  // ✅ CORRECTION : Utiliser { public_id: "chemin/complet" } pour les overlays avec dossiers
   overlays.push({
-    overlay: {
-      public_id: LOGO_CONFIG.publicId  // ✅ ma-bucket-liste/logo_xdetr5
-    },
+    overlay: LOGO_CONFIG.publicId,  // ✅ Directement : logo_xdetr5
     width: LOGO_CONFIG.width,
     gravity: 'north_east',
     x: LOGO_CONFIG.margin,
@@ -317,12 +314,9 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
     
     console.log(`🔍 [DEBUG] publicId original: ${publicId}`);
     
-    // ✅ CORRECTION : Pour les overlays avec dossiers, utiliser { public_id: "chemin/complet" }
-    // Cloudinary SDK nécessite cette syntaxe pour les images dans des sous-dossiers
+    // ✅ Les images sont à la racine, pas besoin de conversion
     allOverlays.push({
-      overlay: {
-        public_id: publicId  // ✅ Objet avec le chemin complet : ma-bucket-liste/activities/surf-hero_g3l7pg
-      },
+      overlay: publicId,  // ✅ Directement : surf-hero_g3l7pg
       width: pos.width,
       height: pos.height,
       crop: 'fill',
@@ -374,16 +368,8 @@ async function generateShareData(bucketListItems, stats, userId) {
       throw new Error('Aucune activité avec image disponible pour générer le collage');
     }
     
-    // 2. Extraire les cloudinary_public_id et ajouter le préfixe si nécessaire
-    const imagePublicIds = validItems.map(item => {
-      let publicId = item.cloudinary_public_id; // ✅ Pas de .activity
-      
-      if (!publicId.includes('/')) {
-        publicId = `ma-bucket-liste/activities/${publicId}`;
-      }
-      
-      return publicId;
-    });
+    // 2. Utiliser les cloudinary_public_id tels quels (ils sont déjà à la racine)
+    const imagePublicIds = validItems.map(item => item.cloudinary_public_id);
     
     console.log(`[SHARE] Images à utiliser: ${imagePublicIds.slice(0, 3).join(', ')}...`);
     
@@ -431,20 +417,18 @@ async function generateShareData(bucketListItems, stats, userId) {
         ...overlays
       ];
       
-      // Générer l'URL Cloudinary
-      const publicId = `ma-bucket-liste/shares/user_${userId}_${formatKey}_${Date.now()}`;
-      
       try {
-        console.log(`[${formatKey.toUpperCase()}] Upload vers Cloudinary...`);
+        console.log(`[${formatKey.toUpperCase()}] Génération avec Cloudinary explicit...`);
         
-        // ✅ CORRECTION CRITIQUE : Utiliser "eager" au lieu de "transformation"
-        // cloudinary.uploader.upload() avec "transformation" essaie d'appliquer les transformations
-        // à l'image source (1x1px), ce qui ne fonctionne pas avec des overlays.
-        // "eager" génère une VERSION DÉRIVÉE avec toutes les transformations appliquées.
-        const uploadResult = await cloudinary.uploader.upload(
-          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+        // ✅ NOUVELLE APPROCHE : Utiliser l'image de fond existante sur Cloudinary
+        // Au lieu d'uploader une image 1x1px, on utilise l'image de fond et on applique
+        // les transformations via explicit() pour générer une version dérivée
+        const backgroundPublicId = 'ma-bucket-liste/backgrounds/purple-gradient_laa2rn';
+        
+        const explicitResult = await cloudinary.uploader.explicit(
+          backgroundPublicId,
           {
-            public_id: publicId,
+            type: 'upload',
             resource_type: 'image',
             eager: [
               {
@@ -456,10 +440,10 @@ async function generateShareData(bucketListItems, stats, userId) {
           }
         );
         
-        // ✅ L'URL de l'image transformée est dans uploadResult.eager[0].secure_url
-        const transformedUrl = uploadResult.eager && uploadResult.eager[0] 
-          ? uploadResult.eager[0].secure_url 
-          : uploadResult.secure_url; // Fallback au cas où
+        // ✅ L'URL de l'image transformée est dans explicitResult.eager[0].secure_url
+        const transformedUrl = explicitResult.eager && explicitResult.eager[0] 
+          ? explicitResult.eager[0].secure_url 
+          : explicitResult.secure_url;
         
         results[formatKey] = {
           url: transformedUrl,
@@ -471,7 +455,7 @@ async function generateShareData(bucketListItems, stats, userId) {
         console.log(`[${formatKey.toUpperCase()}] ✅ Succès: ${transformedUrl}`);
         
       } catch (uploadError) {
-        console.error(`[${formatKey.toUpperCase()}] ❌ Erreur upload:`, uploadError.message);
+        console.error(`[${formatKey.toUpperCase()}] ❌ Erreur explicit:`, uploadError.message);
         results[formatKey] = {
           error: uploadError.message,
           url: null
