@@ -437,25 +437,38 @@ async function generateShareData(bucketListItems, stats, userId) {
       try {
         console.log(`[${formatKey.toUpperCase()}] Upload vers Cloudinary...`);
         
+        // ✅ CORRECTION CRITIQUE : Utiliser "eager" au lieu de "transformation"
+        // cloudinary.uploader.upload() avec "transformation" essaie d'appliquer les transformations
+        // à l'image source (1x1px), ce qui ne fonctionne pas avec des overlays.
+        // "eager" génère une VERSION DÉRIVÉE avec toutes les transformations appliquées.
         const uploadResult = await cloudinary.uploader.upload(
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
           {
             public_id: publicId,
-            transformation: transformation,
             resource_type: 'image',
-            format: 'jpg',
-            quality: 'auto:good'
+            eager: [
+              {
+                transformation: transformation,
+                format: 'jpg',
+                quality: 'auto:good'
+              }
+            ]
           }
         );
         
+        // ✅ L'URL de l'image transformée est dans uploadResult.eager[0].secure_url
+        const transformedUrl = uploadResult.eager && uploadResult.eager[0] 
+          ? uploadResult.eager[0].secure_url 
+          : uploadResult.secure_url; // Fallback au cas où
+        
         results[formatKey] = {
-          url: uploadResult.secure_url,
+          url: transformedUrl,
           width: formatConfig.width,
           height: formatConfig.height,
           imageCount: imagesToUse.length
         };
         
-        console.log(`[${formatKey.toUpperCase()}] ✅ Succès: ${uploadResult.secure_url}`);
+        console.log(`[${formatKey.toUpperCase()}] ✅ Succès: ${transformedUrl}`);
         
       } catch (uploadError) {
         console.error(`[${formatKey.toUpperCase()}] ❌ Erreur upload:`, uploadError.message);
