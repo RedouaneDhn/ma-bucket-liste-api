@@ -956,7 +956,7 @@ function generateSocialLinks(shareContent) {
 router.post('/user/bucket-list/share/create', authenticateToken, async (req, res) => {
   try {
     const { platform, imageUrl, stats } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.Id;
     
     console.log('📝 Création d\'un lien de partage:', { userId, platform });
     
@@ -1053,7 +1053,7 @@ router.post('/user/bucket-list/share/create', authenticateToken, async (req, res
  */
 router.get('/user/bucket-list/share/analytics', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.Id;
     
     console.log('📊 Récupération analytics pour user:', userId);
     
