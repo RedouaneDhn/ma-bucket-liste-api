@@ -72,7 +72,7 @@ function generateSharePageHTML(shareData, userProfile, shareUrl, isForBot) {
       <div style="text-align: center;">
         <div class="spinner"></div>
         <h1 style="color: #333; margin-top: 20px;">Chargement de votre Bucket Liste...</h1>
-<p style="color: #666;">Redirection dans 3 secondes</p>
+        <p style="color: #666;">Redirection dans 3 secondes</p>
         <p style="margin-top: 30px;">
           <a href="${process.env.FRONTEND_URL}" style="color: #007bff; text-decoration: none; font-size: 16px;">
             Cliquez ici pour accéder immédiatement
@@ -325,7 +325,4 @@ router.get('/:token', async (req, res) => {
   }
 });
 
-
-
 module.exports = router;
-
