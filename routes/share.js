@@ -20,7 +20,14 @@ function isBot(userAgent) {
   if (!userAgent) return false;
   
   const botPattern = /bot|crawler|spider|facebook|twitter|linkedin|pinterest|whatsapp|telegram|slack|discordbot|bingpreview|googlebot|yandexbot|baiduspider|twitterbot|facebookexternalhit|linkedinbot|slackbot/i;
-  return botPattern.test(userAgent);
+  const isDetectedBot = botPattern.test(userAgent);
+  
+  // ✅ Log pour debug AVANT le return
+  if (isDetectedBot) {
+    console.log(`🤖 Bot détecté: ${userAgent.substring(0, 50)}...`);
+  }
+  
+  return isDetectedBot;
 }
 
 /**
@@ -51,12 +58,12 @@ function generateSharePageHTML(shareData, userProfile, shareUrl, isForBot) {
   
   // Meta refresh et JavaScript redirect uniquement pour les vrais utilisateurs
   const redirectCode = !isForBot ? `
-    <meta http-equiv="refresh" content="0;url=${process.env.FRONTEND_URL}">
+    <meta http-equiv="refresh" content="3;url=${process.env.FRONTEND_URL}">
     <script>
       // Fallback JavaScript redirect
       setTimeout(function() {
         window.location.href = '${process.env.FRONTEND_URL}';
-      }, 100);
+      }, 3000);
     </script>
   ` : '';
   
@@ -64,11 +71,11 @@ function generateSharePageHTML(shareData, userProfile, shareUrl, isForBot) {
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: Arial, sans-serif;">
       <div style="text-align: center;">
         <div class="spinner"></div>
-        <h1 style="color: #333; margin-top: 20px;">Redirection en cours...</h1>
-        <p style="color: #666;">Vous allez être redirigé vers Ma Bucket Liste</p>
+        <h1 style="color: #333; margin-top: 20px;">Chargement de votre Bucket Liste...</h1>
+<p style="color: #666;">Redirection dans 3 secondes</p>
         <p style="margin-top: 30px;">
           <a href="${process.env.FRONTEND_URL}" style="color: #007bff; text-decoration: none; font-size: 16px;">
-            Cliquez ici si la redirection ne fonctionne pas
+            Cliquez ici pour accéder immédiatement
           </a>
         </p>
       </div>
@@ -318,4 +325,7 @@ router.get('/:token', async (req, res) => {
   }
 });
 
+
+
 module.exports = router;
+
