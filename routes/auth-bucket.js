@@ -441,7 +441,7 @@ router.post('/user/bucket-list/add', authenticateToken, async (req, res) => {
 router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, notes, completion_date, rating } = req.body;
+    const { status, notes, completed_date, rating } = req.body; // ✅ CORRECTION : completed_date (pas completion_date)
 
     const validStatuses = ['planned', 'in_progress', 'completed'];
     if (!status || !validStatuses.includes(status)) {
@@ -455,12 +455,20 @@ router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) =
       updated_at: new Date().toISOString()
     };
 
+    if (notes) updateData.notes = notes;
+    
     if (status === 'completed') {
-  updateData.completed_date = completed_date || new Date().toISOString();
-  if (user_rating && user_rating >= 1 && user_rating <= 5) {
-    updateData.user_rating = user_rating;
-  }
-}
+      // ✅ CORRECTION : completed_date existe dans Supabase
+      updateData.completed_date = completed_date || new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+      
+      // ✅ CORRECTION : rating (pas user_rating) existe dans Supabase
+      if (rating && rating >= 1 && rating <= 5) {
+        updateData.rating = rating;
+      }
+    } else if (status === 'planned') {
+      // Réinitialiser la date si on repasse en "à faire"
+      updateData.completed_date = null;
+    }
 
     const { data: bucketItem, error } = await supabase
       .from('user_bucket_lists')
@@ -500,6 +508,8 @@ router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) =
     res.status(500).json({ error: 'Erreur lors de la mise à jour du statut' });
   }
 });
+
+
 
 // DELETE /api/user/bucket-list/:id
 router.delete('/user/bucket-list/:id', authenticateToken, async (req, res) => {
