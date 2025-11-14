@@ -455,13 +455,12 @@ router.put('/user/bucket-list/:id/status', authenticateToken, async (req, res) =
       updated_at: new Date().toISOString()
     };
 
-    if (notes) updateData.notes = notes;
     if (status === 'completed') {
-      updateData.completion_date = completion_date || new Date().toISOString();
-      if (rating && rating >= 1 && rating <= 5) {
-        updateData.rating = rating;
-      }
-    }
+  updateData.completed_date = completed_date || new Date().toISOString();
+  if (user_rating && user_rating >= 1 && user_rating <= 5) {
+    updateData.user_rating = user_rating;
+  }
+}
 
     const { data: bucketItem, error } = await supabase
       .from('user_bucket_lists')
