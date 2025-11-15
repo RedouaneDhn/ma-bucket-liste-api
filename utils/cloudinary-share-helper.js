@@ -370,79 +370,101 @@ async function generateShareData(bucketListItems, stats, userId) {
       throw new Error('Aucune image trouvée dans la bucket list');
     }
     
-    // 2. Générer les 4 formats
-    const results = {};
-    let successCount = 0;
+  // 2. Générer les 4 formats EN PARALLÈLE
+const startTime = Date.now();
+const backgroundPublicId = 'purple-gradient_iaa2rn';
+
+const generationPromises = Object.entries(SOCIAL_FORMATS).map(async ([formatKey, formatConfig]) => {
+  try {
+    console.log(`[${formatKey.toUpperCase()}] Génération avec Cloudinary explicit...`);
     
-    for (const [formatKey, formatConfig] of Object.entries(SOCIAL_FORMATS)) {
-      try {
-        console.log(`[${formatKey.toUpperCase()}] Génération avec Cloudinary explicit...`);
-        
-        // Limiter le nombre d'images selon le format
-        const limitedImages = imagesToUse.slice(0, formatConfig.maxImages);
-        
-        // Calculer les positions
-        const positions = calculateGridLayout(limitedImages.length, formatKey);
-        
-        // Construire les overlays
-        const overlays = buildOverlayTransformations(
-          limitedImages,
-          positions,
-          formatKey,
-          stats,
-          destinationsToUse
-        );
-        
-        // Créer l'image de base avec fond blanc
-        const transformation = [
+    // Limiter le nombre d'images selon le format
+    const limitedImages = imagesToUse.slice(0, formatConfig.maxImages);
+    
+    // Calculer les positions
+    const positions = calculateGridLayout(limitedImages.length, formatKey);
+    
+    // Construire les overlays
+    const overlays = buildOverlayTransformations(
+      limitedImages,
+      positions,
+      formatKey,
+      stats,
+      destinationsToUse
+    );
+    
+    // Créer l'image de base avec fond blanc
+    const transformation = [
+      {
+        width: formatConfig.width,
+        height: formatConfig.height,
+        crop: 'fill',
+        background: 'white'
+      },
+      ...overlays
+    ];
+    
+    const explicitResult = await cloudinary.uploader.explicit(
+      backgroundPublicId,
+      {
+        type: 'upload',
+        resource_type: 'image',
+        eager: [
           {
-            width: formatConfig.width,
-            height: formatConfig.height,
-            crop: 'fill',
-            background: 'white'
-          },
-          ...overlays
-        ];
-        
-        // ✅ CORRECTION: Utiliser le bon public ID sans préfixe
-        const backgroundPublicId = 'purple-gradient_iaa2rn';
-        
-        const explicitResult = await cloudinary.uploader.explicit(
-          backgroundPublicId,
-          {
-            type: 'upload',
-            resource_type: 'image',
-            eager: [
-              {
-                transformation: transformation,
-                format: 'jpg',
-                quality: 'auto:good'
-              }
-            ]
+            transformation: transformation,
+            format: 'jpg',
+            quality: 'auto:good'
           }
-        );
-        
-        if (explicitResult && explicitResult.eager && explicitResult.eager[0]) {
-          const imageUrl = explicitResult.eager[0].secure_url;
-          
-          results[formatKey] = {
-            imageUrl: imageUrl,
-            width: formatConfig.width,
-            height: formatConfig.height,
-            format: formatConfig.name
-          };
-          
-          successCount++;
-          console.log(`✅ Collage ${formatKey} généré: ${imageUrl}`);
-        } else {
-          console.error(`❌ Pas de résultat eager pour ${formatKey}`);
-        }
-        
-      } catch (uploadError) {
-        console.error(`❌ Erreur explicit ${formatKey}:`, uploadError.message);
-        console.error('Stack:', uploadError.stack);
+        ]
       }
+    );
+    
+    if (explicitResult && explicitResult.eager && explicitResult.eager[0]) {
+      const imageUrl = explicitResult.eager[0].secure_url;
+      
+      console.log(`✅ Collage ${formatKey} généré: ${imageUrl}`);
+      
+      return {
+        formatKey,
+        success: true,
+        data: {
+          imageUrl: imageUrl,
+          width: formatConfig.width,
+          height: formatConfig.height,
+          format: formatConfig.name
+        }
+      };
+    } else {
+      console.error(`❌ Pas de résultat eager pour ${formatKey}`);
+      return { formatKey, success: false };
     }
+    
+  } catch (uploadError) {
+    console.error(`❌ Erreur explicit ${formatKey}:`, uploadError.message);
+    console.error('Stack:', uploadError.stack);
+    return { formatKey, success: false, error: uploadError.message };
+  }
+});
+
+const allResults = await Promise.allSettled(generationPromises);
+
+const endTime = Date.now();
+const totalTime = ((endTime - startTime) / 1000).toFixed(2);
+console.log(`⚡ Génération terminée en ${totalTime}s`);
+
+// Construire l'objet results
+const results = {};
+let successCount = 0;
+
+allResults.forEach((result) => {
+  if (result.status === 'fulfilled' && result.value.success) {
+    const { formatKey, data } = result.value;
+    results[formatKey] = data;
+    successCount++;
+  } else if (result.status === 'fulfilled') {
+    console.warn(`⚠️ Format ${result.value.formatKey} a échoué`);
+  }
+});
     
     console.log(`✅ Génération terminée: ${successCount}/4 images`);
     
