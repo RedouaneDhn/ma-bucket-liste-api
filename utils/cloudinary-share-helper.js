@@ -344,31 +344,47 @@ async function generateShareData(bucketListItems, stats, userId) {
   try {
     console.log('🎨 [SHARE] Début génération collages pour user:', userId);
     console.log(`📊 Stats: ${stats.completed}/${stats.total} activités`);
-    
-    // 1. Extraire les public_ids et destinations
+
     const imagesToUse = [];
     const destinationsToUse = [];
     
-    bucketListItems.forEach(item => {
-      // ✅ Les données sont directement sur item, pas sur item.activity
-      if (item.cloudinary_public_id) {
-        let publicId = item.cloudinary_public_id;
-        
-        // ✅ Les public_ids sont déjà au bon format (sans préfixe)
-        imagesToUse.push(publicId);
-        
-        if (item.destination_name) {
-          destinationsToUse.push(item.destination_name);
-        }
+   bucketListItems.forEach(item => {
+  // ✅ Validation stricte du cloudinary_public_id
+  if (item.cloudinary_public_id && 
+      typeof item.cloudinary_public_id === 'string' && 
+      item.cloudinary_public_id.trim().length > 0 &&
+      !item.cloudinary_public_id.includes('undefined') &&
+      !item.cloudinary_public_id.includes('null')) {
+    
+    let publicId = item.cloudinary_public_id.trim();
+    
+    // Vérifier que le publicId a un format valide
+    // Format attendu: "nom-fichier_abc123" (lettres, chiffres, tirets, underscores)
+    const validFormat = /^[a-zA-Z0-9_\-\/]+$/;
+    
+    if (validFormat.test(publicId)) {
+      imagesToUse.push(publicId);
+      
+      if (item.destination_name) {
+        destinationsToUse.push(item.destination_name);
       }
-    });
-    
-    console.log(`🖼️ Public IDs extraits (avec préfixe): [${imagesToUse.join(', ')}]`);
-    console.log(`🌍 Destinations: [${destinationsToUse.join(', ')}]`);
-    
-    if (imagesToUse.length === 0) {
-      throw new Error('Aucune image trouvée dans la bucket list');
+      
+      console.log(`✅ Image validée: ${publicId}`);
+    } else {
+      console.warn(`⚠️ Public ID invalide ignoré: "${publicId}" (format incorrect)`);
     }
+  } else {
+    console.warn(`⚠️ Activité sans image valide ignorée: ${item.title || 'Sans titre'}`);
+  }
+});
+
+// Vérifier qu'il reste au moins 1 image
+if (imagesToUse.length === 0) {
+  console.error('❌ Aucune image valide trouvée après validation');
+  throw new Error('Aucune image valide dans la bucket list');
+}
+
+console.log(`📊 ${imagesToUse.length} images validées sur ${bucketListItems.length} activités`);
     
   // 2. Générer les 4 formats EN PARALLÈLE
 const startTime = Date.now();
