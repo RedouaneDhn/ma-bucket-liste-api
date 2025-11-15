@@ -55,10 +55,10 @@ const SOCIAL_FORMATS = {
 // Configuration du logo
 const LOGO_CONFIG = {
   publicId: 'logo_xdetr5', // ✅ Sans préfixe, à la racine
-  width: 120,
+  width: 250,
   position: 'top_right',
   margin: 20,
-  opacity: 85
+  opacity: 95
 };
 
 // Configuration des couleurs et styles
@@ -220,8 +220,8 @@ function buildFooterOverlay(formatKey, stats, destinationNames) {
   overlays.push({
     overlay: {
       font_family: STYLE_CONFIG.primaryFont,
-      font_size: 28,
-      font_weight: 'bold',
+      font_size: 36,
+      font_weight: 'black',
       text: encodeURIComponent(statsText)
     },
     color: STYLE_CONFIG.textColor
@@ -265,8 +265,8 @@ function buildFooterOverlay(formatKey, stats, destinationNames) {
   overlays.push({
     overlay: {
       font_family: STYLE_CONFIG.primaryFont,
-      font_size: 24,
-      font_weight: 'bold',
+      font_size: 32,
+      font_weight: 'black',
       text: ctaText
     },
     color: STYLE_CONFIG.textColor
