@@ -353,7 +353,7 @@ async function generateShareData(bucketListItems, stats, userId) {
       }
       
      // ✅ AJOUT DU PRÉFIXE ma-bucket-liste/activities/
-  const fullPublicId = `ma-bucket-liste/activities/${publicId}`;
+  const fullPublicId = `ma-bucket-liste:activities:${publicId}`;
   imagesToUse.push(fullPublicId);
   
   if (item.destination_name) {
