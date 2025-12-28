@@ -445,30 +445,25 @@ const generationPromises = Object.entries(SOCIAL_FORMATS).map(async ([formatKey,
     );
     
     if (explicitResult && explicitResult.eager && explicitResult.eager[0]) {
-      const imageUrl = explicitResult.eager[0].secure_url;
-      
-      console.log(`✅ Collage ${formatKey} généré: ${imageUrl}`);
-      
-      return {
-        formatKey,
-        success: true,
-        data: {
-          imageUrl: imageUrl,
-          width: formatConfig.width,
-          height: formatConfig.height,
-          format: formatConfig.name
-        }
-      };
-    } else {
-      console.error(`❌ Pas de résultat eager pour ${formatKey}`);
-      return { formatKey, success: false };
+  const imageUrl = explicitResult.eager[0].secure_url;
+  
+  console.log(`✅ [${formatKey.toUpperCase()}] Collage généré: ${imageUrl}`);
+  console.log(`🔍 [${formatKey.toUpperCase()}] explicitResult:`, JSON.stringify(explicitResult, null, 2));
+  
+  return {
+    formatKey,
+    success: true,
+    data: {
+      imageUrl: imageUrl,
+      width: formatConfig.width,
+      height: formatConfig.height,
+      format: formatConfig.name
     }
-    
-  } catch (uploadError) {
-    console.error(`❌ Erreur explicit ${formatKey}:`, uploadError.message);
-    console.error('Stack:', uploadError.stack);
-    return { formatKey, success: false, error: uploadError.message };
-  }
+  };
+} else {
+  console.error(`❌ [${formatKey.toUpperCase()}] Pas de résultat eager`);
+  console.error(`🔍 [${formatKey.toUpperCase()}] explicitResult complet:`, JSON.stringify(explicitResult, null, 2));
+  return { formatKey, success: false };
 });
 
 const allResults = await Promise.allSettled(generationPromises);
