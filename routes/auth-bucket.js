@@ -780,7 +780,16 @@ console.log('🎯 Activités sélectionnées avec images:', selectedActivities.m
     pending: pending.length,
     completionRate: Math.round((completed.length / bucketList.length) * 100)
   };
-  
+  // 🔍 DEBUG TEMPORAIRE - À supprimer après
+console.log('\n🔍 DEBUG selectedActivities AVANT generateShareData:');
+selectedActivities.forEach((activity, index) => {
+  console.log(`  [${index}] ${activity.title}:`);
+  console.log(`      - cloudinary_public_id: "${activity.cloudinary_public_id}"`);
+  console.log(`      - type: ${typeof activity.cloudinary_public_id}`);
+  console.log(`      - length: ${activity.cloudinary_public_id?.length || 'N/A'}`);
+  console.log(`      - JSON: ${JSON.stringify(activity.cloudinary_public_id)}`);
+});
+console.log('');
   // ⚠️ ATTENTION : La fonction est maintenant asynchrone
   try {
     const shareData = await generateShareData(

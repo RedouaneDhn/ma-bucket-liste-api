@@ -348,34 +348,43 @@ async function generateShareData(bucketListItems, stats, userId) {
     const imagesToUse = [];
     const destinationsToUse = [];
     
-   bucketListItems.forEach(item => {
-  // ✅ Validation stricte du cloudinary_public_id
-  if (item.cloudinary_public_id && 
-      typeof item.cloudinary_public_id === 'string' && 
-      item.cloudinary_public_id.trim().length > 0 &&
-      !item.cloudinary_public_id.includes('undefined') &&
-      !item.cloudinary_public_id.includes('null')) {
-    
-    let publicId = item.cloudinary_public_id.trim();
-    
-    // Vérifier que le publicId a un format valide
-    // Format attendu: "nom-fichier_abc123" (lettres, chiffres, tirets, underscores)
-    const validFormat = /^[a-zA-Z0-9_\-\/]+$/;
-    
-    if (validFormat.test(publicId)) {
-      imagesToUse.push(publicId);
-      
-      if (item.destination_name) {
-        destinationsToUse.push(item.destination_name);
-      }
-      
-      console.log(`✅ Image validée: ${publicId}`);
-    } else {
-      console.warn(`⚠️ Public ID invalide ignoré: "${publicId}" (format incorrect)`);
-    }
-  } else {
-    console.warn(`⚠️ Activité sans image valide ignorée: ${item.title || 'Sans titre'}`);
+bucketListItems.forEach((item, itemIndex) => {
+  // 🔍 DEBUG - Log de chaque item
+  console.log(`\n[${itemIndex}] Validation: "${item.title}"`);
+  console.log(`    cloudinary_public_id: "${item.cloudinary_public_id}"`);
+  console.log(`    type: ${typeof item.cloudinary_public_id}`);
+  
+  if (!item.cloudinary_public_id) {
+    console.log(`    ❌ REJETÉ: Pas de cloudinary_public_id`);
+    return;
   }
+  
+  let publicId = String(item.cloudinary_public_id).trim();
+  
+  if (publicId.length === 0 || 
+      publicId === 'undefined' || 
+      publicId === 'null' ||
+      publicId === 'NaN') {
+    console.log(`    ❌ REJETÉ: Valeur invalide: "${publicId}"`);
+    return;
+  }
+  
+  // ✅ Regex plus permissive
+  const validFormat = /^[a-zA-Z0-9_\-\/\.]+$/;
+  
+  if (!validFormat.test(publicId)) {
+    console.log(`    ❌ REJETÉ: Format invalide`);
+    return;
+  }
+  
+  // ✅ Image validée
+  imagesToUse.push(publicId);
+  
+  if (item.destination_name) {
+    destinationsToUse.push(item.destination_name);
+  }
+  
+  console.log(`    ✅ ACCEPTÉ`);
 });
 
 // Vérifier qu'il reste au moins 1 image
