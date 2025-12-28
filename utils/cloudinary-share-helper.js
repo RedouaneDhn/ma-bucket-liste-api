@@ -359,7 +359,7 @@ async function generateShareData(bucketListItems, stats, userId) {
     destinationsToUse.push(item.destination_name);
   }
   
-  console.log(`    ✅ ACCEPTÉ: ${PublicId}`);
+  console.log(`    ✅ ACCEPTÉ: ${publicId}`);
 });
 
     if (imagesToUse.length === 0) {
