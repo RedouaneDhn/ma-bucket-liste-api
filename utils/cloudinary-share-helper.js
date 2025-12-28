@@ -352,14 +352,16 @@ async function generateShareData(bucketListItems, stats, userId) {
         return;
       }
       
-      imagesToUse.push(publicId);
-      
-      if (item.destination_name) {
-        destinationsToUse.push(item.destination_name);
-      }
-      
-      console.log(`    ✅ ACCEPTÉ`);
-    });
+     // ✅ AJOUT DU PRÉFIXE ma-bucket-liste/activities/
+  const fullPublicId = `ma-bucket-liste/activities/${publicId}`;
+  imagesToUse.push(fullPublicId);
+  
+  if (item.destination_name) {
+    destinationsToUse.push(item.destination_name);
+  }
+  
+  console.log(`    ✅ ACCEPTÉ: ${fullPublicId}`);
+});
 
     if (imagesToUse.length === 0) {
       console.error('❌ Aucune image valide trouvée après validation');
