@@ -797,7 +797,16 @@ console.log('');
       stats,
       userId // Passer l'ID utilisateur
     );
-    result = shareData;
+    result = {
+  success: true,
+  images: {
+    instagram: shareData.instagram,
+    facebook: shareData.facebook,
+    twitter: shareData.twitter,
+    stories: shareData.stories
+  },
+  stats: shareData.stats
+};
     
  
     
