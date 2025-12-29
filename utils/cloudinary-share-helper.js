@@ -352,14 +352,15 @@ async function generateShareData(bucketListItems, stats, userId) {
         return;
       }
       
-   
-  imagesToUse.push(publicId);
+  
+  const fullPublicId = `ma-bucket-liste/activities/${publicId}`;   
+  imagesToUse.push(fullPublicId);
   
   if (item.destination_name) {
     destinationsToUse.push(item.destination_name);
   }
   
-  console.log(`    ✅ ACCEPTÉ: ${publicId}`);
+  console.log(`    ✅ ACCEPTÉ: ${fullPublicId}`);
 });
 
     if (imagesToUse.length === 0) {
