@@ -1,18 +1,18 @@
 // ============================================
-// CLOUDINARY SHARE HELPER - VERSION CORRIGÉE
-// Génération de collages avec overlays multiples
+// CLOUDINARY SHARE HELPER - VERSION INITIALE
+// Celle qui fonctionnait avec 3 activités
 // ============================================
 
 const cloudinary = require('cloudinary').v2;
 
-// Configuration Cloudinary (depuis variables d'environnement)
+// Configuration Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Configuration des formats par réseau social
+// Configuration des formats
 const SOCIAL_FORMATS = {
   instagram: {
     width: 1080,
@@ -52,7 +52,6 @@ const SOCIAL_FORMATS = {
   }
 };
 
-// Configuration du logo
 const LOGO_CONFIG = {
   publicId: 'logo_xdetr5',
   width: 250,
@@ -61,7 +60,6 @@ const LOGO_CONFIG = {
   opacity: 95
 };
 
-// Configuration des couleurs et styles
 const STYLE_CONFIG = {
   headerBg: 'rgb:000000',
   headerOpacity: 70,
@@ -72,11 +70,9 @@ const STYLE_CONFIG = {
   secondaryFont: 'Arial'
 };
 
-console.log('✅ Cloudinary Share Helper chargé - Version avec overlays séparés');
+console.log('✅ Cloudinary Share Helper chargé - Version initiale');
 
-// ============================================
-// FONCTION: calculateGridLayout
-// ============================================
+// Calcul de la grille
 function calculateGridLayout(imageCount, formatKey) {
   const format = SOCIAL_FORMATS[formatKey];
   const { width, height, headerHeight, footerHeight } = format;
@@ -105,89 +101,60 @@ function calculateGridLayout(imageCount, formatKey) {
       rows = 2; cols = 2;
       break;
     case 5:
+      rows = (formatKey === 'stories') ? 5 : 2;
+      cols = (formatKey === 'stories') ? 1 : 3;
+      break;
     case 6:
-      rows = 2; cols = 3;
+      rows = (formatKey === 'stories') ? 3 : 2;
+      cols = (formatKey === 'stories') ? 2 : 3;
       break;
     case 7:
     case 8:
-    case 9:
-      rows = 3; cols = 3;
+      rows = (formatKey === 'stories') ? 4 : 2;
+      cols = (formatKey === 'stories') ? 2 : 4;
       break;
+    case 9:
     default:
       rows = 3; cols = 3;
   }
   
-  const imageWidth = Math.floor((availableWidth - (cols - 1) * gap) / cols);
-  const imageHeight = Math.floor((availableHeight - (rows - 1) * gap) / rows);
+  const cellWidth = Math.floor((availableWidth - (cols - 1) * gap) / cols);
+  const cellHeight = Math.floor((availableHeight - (rows - 1) * gap) / rows);
+  
+  console.log(`[LAYOUT] Grille: ${rows}x${cols}, Taille cellule: ${cellWidth}x${cellHeight}`);
   
   const positions = [];
-  const numImages = Math.min(imageCount, rows * cols);
-  
-  for (let i = 0; i < numImages; i++) {
+  for (let i = 0; i < imageCount; i++) {
     const row = Math.floor(i / cols);
     const col = i % cols;
-    
-    const x = col * (imageWidth + gap);
-    const y = headerHeight + row * (imageHeight + gap);
-    
     positions.push({
-      x,
-      y,
-      width: imageWidth,
-      height: imageHeight
+      x: col * (cellWidth + gap),
+      y: headerHeight + row * (cellHeight + gap),
+      width: cellWidth,
+      height: cellHeight
     });
   }
-  
-  console.log(`[LAYOUT] Grille: ${rows}x${cols}, Taille cellule: ${imageWidth}x${imageHeight}`);
   
   return positions;
 }
 
-// ============================================
-// FONCTION: buildHeaderOverlay
-// ============================================
+// Construction du header
 function buildHeaderOverlay(formatKey) {
-  const format = SOCIAL_FORMATS[formatKey];
   const overlays = [];
   
   console.log(`🔍 [DEBUG LOGO] publicId: ${LOGO_CONFIG.publicId}`);
   
-  let logoX, logoY, logoGravity;
-  
-  switch (LOGO_CONFIG.position) {
-    case 'top_right':
-      logoGravity = 'north_east';
-      logoX = LOGO_CONFIG.margin;
-      logoY = LOGO_CONFIG.margin;
-      break;
-    case 'top_left':
-      logoGravity = 'north_west';
-      logoX = LOGO_CONFIG.margin;
-      logoY = LOGO_CONFIG.margin;
-      break;
-    case 'center':
-      logoGravity = 'center';
-      logoX = 0;
-      logoY = -(format.height / 2) + (format.headerHeight / 2);
-      break;
-    default:
-      logoGravity = 'north_east';
-      logoX = LOGO_CONFIG.margin;
-      logoY = LOGO_CONFIG.margin;
-  }
-  
   overlays.push({
     overlay: LOGO_CONFIG.publicId,
     width: LOGO_CONFIG.width,
-    crop: 'scale',
     opacity: LOGO_CONFIG.opacity
   });
   
   overlays.push({
     flags: 'layer_apply',
-    gravity: logoGravity,
-    x: logoX,
-    y: logoY
+    gravity: 'north_east',
+    x: LOGO_CONFIG.margin,
+    y: LOGO_CONFIG.margin
   });
   
   console.log(`[HEADER] Logo ajouté - Position: ${LOGO_CONFIG.position}, Taille: ${LOGO_CONFIG.width}px`);
@@ -195,17 +162,13 @@ function buildHeaderOverlay(formatKey) {
   return overlays;
 }
 
-// ============================================
-// FONCTION: buildFooterOverlay
-// ============================================
+// Construction du footer
 function buildFooterOverlay(formatKey, stats, destinationNames) {
-  const format = SOCIAL_FORMATS[formatKey];
   const overlays = [];
+  const format = SOCIAL_FORMATS[formatKey];
   
-  const completedCount = stats.completed || 0;
-  const totalCount = stats.total || 0;
-  const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  const statsText = `✅ ${completedCount}/${totalCount} réalisées (${percentage}%)`;
+  const completionRate = Math.round((stats.completed / stats.total) * 100);
+  const statsText = `✅ ${stats.completed}/${stats.total} réalisées (${completionRate}%)`;
   
   overlays.push({
     overlay: {
@@ -224,15 +187,15 @@ function buildFooterOverlay(formatKey, stats, destinationNames) {
     y: format.showDestinations ? 55 : 25
   });
   
-  if (format.showDestinations && destinationNames && destinationNames.length > 0) {
-    const displayNames = destinationNames.slice(0, 5);
-    const destinationsText = `🌍 ${displayNames.join(' • ')}${destinationNames.length > 5 ? '...' : ''}`;
+  if (format.showDestinations && destinationNames.length > 0) {
+    const uniqueDestinations = [...new Set(destinationNames)];
+    const destText = uniqueDestinations.slice(0, 3).join(', ');
     
     overlays.push({
       overlay: {
         font_family: STYLE_CONFIG.primaryFont,
-        font_size: 24,
-        text: encodeURIComponent(destinationsText)
+        font_size: 28,
+        text: encodeURIComponent(`📍 ${destText}`)
       },
       color: STYLE_CONFIG.textColor
     });
@@ -241,7 +204,7 @@ function buildFooterOverlay(formatKey, stats, destinationNames) {
       flags: 'layer_apply',
       gravity: 'south_west',
       x: 30,
-      y: 30
+      y: 25
     });
   }
   
@@ -269,9 +232,7 @@ function buildFooterOverlay(formatKey, stats, destinationNames) {
   return overlays;
 }
 
-// ============================================
-// FONCTION: buildOverlayTransformations
-// ============================================
+// Construction des overlays
 function buildOverlayTransformations(images, positions, formatKey, stats, destinationNames) {
   const allOverlays = [];
   
@@ -287,6 +248,7 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
       return;
     }
     
+    // Overlay de l'image
     allOverlays.push({
       overlay: publicId,
       width: pos.width,
@@ -295,6 +257,7 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
       gravity: 'auto'
     });
     
+    // Application avec positionnement
     allOverlays.push({
       flags: 'layer_apply',
       gravity: 'north_west',
@@ -314,9 +277,7 @@ function buildOverlayTransformations(images, positions, formatKey, stats, destin
   return allOverlays;
 }
 
-// ============================================
-// FONCTION PRINCIPALE: generateShareData
-// ============================================
+// FONCTION PRINCIPALE
 async function generateShareData(bucketListItems, stats, userId) {
   try {
     console.log('🎨 [SHARE] Début génération collages pour user:', userId);
@@ -325,6 +286,7 @@ async function generateShareData(bucketListItems, stats, userId) {
     const imagesToUse = [];
     const destinationsToUse = [];
     
+    // VALIDATION DES IMAGES - VERSION INITIALE
     bucketListItems.forEach((item, itemIndex) => {
       console.log(`\n[${itemIndex}] Validation: "${item.title}"`);
       console.log(`    cloudinary_public_id: "${item.cloudinary_public_id}"`);
@@ -352,16 +314,15 @@ async function generateShareData(bucketListItems, stats, userId) {
         return;
       }
       
-  
-  const fullPublicId = `ma-bucket-liste/activities/${publicId}`;   
-  imagesToUse.push(fullPublicId);
-  
-  if (item.destination_name) {
-    destinationsToUse.push(item.destination_name);
-  }
-  
-  console.log(`    ✅ ACCEPTÉ: ${fullPublicId}`);
-});
+      // ✅ PAS DE PRÉFIXE AJOUTÉ - On utilise le publicId tel quel
+      imagesToUse.push(publicId);
+      
+      if (item.destination_name) {
+        destinationsToUse.push(item.destination_name);
+      }
+      
+      console.log(`    ✅ ACCEPTÉ: ${publicId}`);
+    });
 
     if (imagesToUse.length === 0) {
       console.error('❌ Aucune image valide trouvée après validation');
@@ -369,17 +330,16 @@ async function generateShareData(bucketListItems, stats, userId) {
     }
 
     console.log(`📊 ${imagesToUse.length} images validées sur ${bucketListItems.length} activités`);
-    
-    const startTime = Date.now();
-    const backgroundPublicId = 'purple-gradient_iaa2rn';
 
+    const backgroundPublicId = 'purple-gradient_iaa2rn';
+    const results = {};
     const generationPromises = Object.entries(SOCIAL_FORMATS).map(async ([formatKey, formatConfig]) => {
       try {
         console.log(`[${formatKey.toUpperCase()}] Génération avec Cloudinary explicit...`);
         
-        const limitedImages = imagesToUse.slice(0, formatConfig.maxImages);
+        const maxImages = formatConfig.maxImages;
+        const limitedImages = imagesToUse.slice(0, maxImages);
         const positions = calculateGridLayout(limitedImages.length, formatKey);
-        
         const overlays = buildOverlayTransformations(
           limitedImages,
           positions,
@@ -387,102 +347,71 @@ async function generateShareData(bucketListItems, stats, userId) {
           stats,
           destinationsToUse
         );
-        
+
         const transformation = [
-          {
-            width: formatConfig.width,
-            height: formatConfig.height,
-            crop: 'fill',
-            background: 'white'
-          },
-          ...overlays
+          { background: 'white' },
+          { width: formatConfig.width, height: formatConfig.height, crop: 'fill' },
+          ...overlays,
+          { quality: 'auto:good' },
+          { format: 'jpg' }
         ];
-        
+
         const explicitResult = await cloudinary.uploader.explicit(
           backgroundPublicId,
           {
             type: 'upload',
             resource_type: 'image',
-            eager: [
-              {
-                transformation: transformation,
-                format: 'jpg',
-                quality: 'auto:good'
-              }
-            ]
+            eager: [{ transformation }]
           }
         );
+
+        const imageUrl = explicitResult.eager?.[0]?.secure_url;
         
-        if (explicitResult && explicitResult.eager && explicitResult.eager[0]) {
-          const imageUrl = explicitResult.eager[0].secure_url;
-          
-          console.log(`✅ [${formatKey.toUpperCase()}] Collage généré: ${imageUrl}`);
+        if (!imageUrl) {
           console.log(`🔍 [${formatKey.toUpperCase()}] explicitResult:`, JSON.stringify(explicitResult, null, 2));
-          
-          return {
-            formatKey,
-            success: true,
-            data: {
-              imageUrl: imageUrl,
-              width: formatConfig.width,
-              height: formatConfig.height,
-              format: formatConfig.name
-            }
-          };
-        } else {
-          console.error(`❌ [${formatKey.toUpperCase()}] Pas de résultat eager`);
-          console.error(`🔍 [${formatKey.toUpperCase()}] explicitResult complet:`, JSON.stringify(explicitResult, null, 2));
-          return { formatKey, success: false };
+          throw new Error(`Pas d'URL générée pour ${formatKey}`);
         }
-        
-      } catch (uploadError) {
-        console.error(`❌ [${formatKey.toUpperCase()}] Erreur explicit:`, uploadError.message);
-        console.error('Stack:', uploadError.stack);
-        return { formatKey, success: false, error: uploadError.message };
+
+        console.log(`✅ [${formatKey.toUpperCase()}] Collage généré: ${imageUrl}`);
+        results[formatKey] = imageUrl;
+
+      } catch (error) {
+        console.error(`❌ [${formatKey.toUpperCase()}] Erreur explicit:`, error.message);
+        console.error('Stack:', error.stack);
+        throw error;
       }
     });
 
-    const allResults = await Promise.allSettled(generationPromises);
-
-    const endTime = Date.now();
-    const totalTime = ((endTime - startTime) / 1000).toFixed(2);
-    console.log(`⚡ Génération terminée en ${totalTime}s`);
-
-    const results = {};
-    let successCount = 0;
-
-    allResults.forEach((result) => {
-      if (result.status === 'fulfilled' && result.value.success) {
-        const { formatKey, data } = result.value;
-        results[formatKey] = data;
-        successCount++;
-      } else if (result.status === 'fulfilled') {
-        console.warn(`⚠️ Format ${result.value.formatKey} a échoué`);
-      }
-    });
+    const startTime = Date.now();
+    await Promise.all(generationPromises);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     
+    console.log(`⚡ Génération terminée en ${duration}s`);
+    
+    const successCount = Object.keys(results).length;
     console.log(`✅ Génération terminée: ${successCount}/4 images`);
-    
+
     if (successCount === 0) {
       throw new Error('Aucune image n\'a pu être générée');
     }
-    
+
     return {
-      success: true,
-      images: results,
-      stats: stats
+      instagram: results.instagram || null,
+      facebook: results.facebook || null,
+      twitter: results.twitter || null,
+      stories: results.stories || null,
+      stats: {
+        total: stats.total,
+        completed: stats.completed,
+        pending: stats.total - stats.completed,
+        completionRate: Math.round((stats.completed / stats.total) * 100)
+      }
     };
-    
+
   } catch (error) {
     console.error('❌ Erreur dans generateShareData:', error);
     throw error;
   }
 }
 
-// ============================================
-// EXPORTS
-// ============================================
-module.exports = {
-  generateShareData,
-  SOCIAL_FORMATS
-};
+module.exports = { generateShareData };
