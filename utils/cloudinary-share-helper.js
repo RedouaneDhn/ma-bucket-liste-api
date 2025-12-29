@@ -395,18 +395,35 @@ async function generateShareData(bucketListItems, stats, userId) {
       throw new Error('Aucune image n\'a pu être générée');
     }
 
-    return {
-      instagram: results.instagram || null,
-      facebook: results.facebook || null,
-      twitter: results.twitter || null,
-      stories: results.stories || null,
-      stats: {
-        total: stats.total,
-        completed: stats.completed,
-        pending: stats.total - stats.completed,
-        completionRate: Math.round((stats.completed / stats.total) * 100)
-      }
-    };
+    // ✅ APRÈS - Format correct avec imageUrl + dimensions
+return {
+  instagram: results.instagram ? {
+    imageUrl: results.instagram,
+    width: SOCIAL_FORMATS.instagram.width,
+    height: SOCIAL_FORMATS.instagram.height
+  } : null,
+  facebook: results.facebook ? {
+    imageUrl: results.facebook,
+    width: SOCIAL_FORMATS.facebook.width,
+    height: SOCIAL_FORMATS.facebook.height
+  } : null,
+  twitter: results.twitter ? {
+    imageUrl: results.twitter,
+    width: SOCIAL_FORMATS.twitter.width,
+    height: SOCIAL_FORMATS.twitter.height
+  } : null,
+  stories: results.stories ? {
+    imageUrl: results.stories,
+    width: SOCIAL_FORMATS.stories.width,
+    height: SOCIAL_FORMATS.stories.height
+  } : null,
+  stats: {
+    total: stats.total,
+    completed: stats.completed,
+    pending: stats.total - stats.completed,
+    completionRate: Math.round((stats.completed / stats.total) * 100)
+  }
+};
 
   } catch (error) {
     console.error('❌ Erreur dans generateShareData:', error);
