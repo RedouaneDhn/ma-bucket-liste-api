@@ -73,19 +73,27 @@ router.get('/auth/google/callback', async (req, res) => {
           .eq('user_id', userId);
       }
 
+   } else {
+    // Email existe dans Supabase Auth mais pas dans user_profiles
+    // → Récupérer l'utilisateur existant via son email
+    const { data: authUser, error: getUserError } = await supabase.auth.admin.getUserByEmail(email);
+
+    if (getUserError || !authUser) {
+        // Vraiment nouvel utilisateur → créer
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email,
+            email_confirm: true,
+            user_metadata: { firstName, lastName, provider: 'google' }
+        });
+        if (authError) throw authError;
+        userId = authData.user.id;
     } else {
-      // Nouvel utilisateur → créer dans Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email,
-        email_confirm: true,
-        user_metadata: { firstName, lastName, provider: 'google' }
-      });
+        // Utilisateur existant (email/password) → récupérer son ID
+        userId = authUser.user.id;
+    }
 
-      if (authError) throw authError;
-      userId = authData.user.id;
-
-      // Créer le profil
-      await supabase.from('user_profiles').insert([{
+    // Créer le profil dans tous les cas
+    await supabase.from('user_profiles').upsert([{
         user_id: userId,
         email,
         first_name: firstName,
@@ -93,8 +101,8 @@ router.get('/auth/google/callback', async (req, res) => {
         avatar_url: avatarUrl,
         google_id: googleId,
         created_at: new Date().toISOString()
-      }]);
-    }
+    }], { onConflict: 'user_id' });
+}
 
     // 4. Générer un JWT compatible avec le système existant
     const jwtToken = jwt.sign(
