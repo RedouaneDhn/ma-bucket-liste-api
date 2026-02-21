@@ -1,8 +1,14 @@
-const jwt = require('jsonwebtoken');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
-const authenticateToken = (req, res, next) => {
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     return res.status(401).json({
@@ -11,17 +17,26 @@ const authenticateToken = (req, res, next) => {
     });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
+  try {
+    // Vérification via Supabase (fonctionne pour email/password ET Google OAuth)
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
       return res.status(403).json({
         success: false,
-        message: 'Token invalide'
+        message: 'Token invalide ou expiré'
       });
     }
-    
-    req.user = user;
+
+    req.user = { userId: user.id, email: user.email };
     next();
-  });
+
+  } catch (err) {
+    return res.status(403).json({
+      success: false,
+      message: 'Erreur de vérification du token'
+    });
+  }
 };
 
 module.exports = { authenticateToken };
