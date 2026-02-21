@@ -73,13 +73,25 @@ router.get('/auth/google/callback', async (req, res) => {
           .eq('user_id', userId);
       }
 
-   } else {
-    // Email existe dans Supabase Auth mais pas dans user_profiles
-    // → Récupérer l'utilisateur existant via son email
-    const { data: authUser, error: getUserError } = await supabase.auth.admin.getUserByEmail(email);
+ } else {
+    // Email existe déjà → chercher l'utilisateur dans user_profiles
+    const { data: existingProfile } = await supabase
+        .from('user_profiles')
+        .select('user_id')
+        .eq('email', email)
+        .single();
 
-    if (getUserError || !authUser) {
-        // Vraiment nouvel utilisateur → créer
+    if (existingProfile) {
+        // Utilisateur trouvé → récupérer son ID
+        userId = existingProfile.user_id;
+        
+        // Mettre à jour avec google_id et avatar si manquants
+        await supabase
+            .from('user_profiles')
+            .update({ google_id: googleId, avatar_url: avatarUrl })
+            .eq('user_id', userId);
+    } else {
+        // Nouvel utilisateur → créer dans Supabase Auth
         const { data: authData, error: authError } = await supabase.auth.admin.createUser({
             email,
             email_confirm: true,
@@ -87,21 +99,18 @@ router.get('/auth/google/callback', async (req, res) => {
         });
         if (authError) throw authError;
         userId = authData.user.id;
-    } else {
-        // Utilisateur existant (email/password) → récupérer son ID
-        userId = authUser.user.id;
-    }
 
-    // Créer le profil dans tous les cas
-    await supabase.from('user_profiles').upsert([{
-        user_id: userId,
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        avatar_url: avatarUrl,
-        google_id: googleId,
-        created_at: new Date().toISOString()
-    }], { onConflict: 'user_id' });
+        // Créer le profil
+        await supabase.from('user_profiles').insert([{
+            user_id: userId,
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            avatar_url: avatarUrl,
+            google_id: googleId,
+            created_at: new Date().toISOString()
+        }]);
+    }
 }
 
     // 4. Générer un JWT compatible avec le système existant
