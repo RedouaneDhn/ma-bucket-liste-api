@@ -80,7 +80,6 @@ const authLimiter = rateLimit({
 const authBucketRoutes = require('./routes/auth-bucket');
 const userProfileRoutes = require('./routes/user-profile');
 const shareRoutes = require('./routes/share');
-const authGoogleRoutes = require('./routes/auth-google');
 
 // ==========================================
 // 6. ROUTES PRINCIPALES (existantes)
@@ -304,7 +303,6 @@ app.use('/api/auth/register', authLimiter);
 app.use('/share', shareRoutes);
 app.use('/api', authBucketRoutes);
 app.use('/api/user', userProfileRoutes);
-app.use('/api', authGoogleRoutes);
 
 // ==========================================
 // 8. GESTION DES ERREURS
