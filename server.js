@@ -303,6 +303,8 @@ app.use('/api/auth/register', authLimiter);
 app.use('/share', shareRoutes);
 app.use('/api', authBucketRoutes);
 app.use('/api/user', userProfileRoutes);
+app.use('/api/blog', require('./routes/blog'));
+
 
 // ==========================================
 // 8. GESTION DES ERREURS
@@ -363,6 +365,8 @@ app.use('*', (req, res) => {
   });
 });
 
+
+
 // Middleware de gestion d'erreurs globales
 app.use((err, req, res, next) => {
   console.error('Erreur serveur:', err);
@@ -376,6 +380,7 @@ app.use((err, req, res, next) => {
     ...(process.env.NODE_ENV === 'development' && { details: err.message })
   });
 });
+
 
 // ==========================================
 // 9. DÉMARRAGE DU SERVEUR
