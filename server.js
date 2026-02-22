@@ -303,7 +303,6 @@ app.use('/api/auth/register', authLimiter);
 app.use('/share', shareRoutes);
 app.use('/api', authBucketRoutes);
 app.use('/api/user', userProfileRoutes);
-app.use('/api/blog', require('./routes/blog'));
 
 
 // ==========================================
