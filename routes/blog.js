@@ -54,7 +54,49 @@ router.get('/get', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+router.get('/share', async (req, res) => {
+    const { slug } = req.query;
+    if (!slug) return res.redirect('/blog/index.html');
 
+    try {
+        const { data, error } = await supabase
+            .from('articles')
+            .select('titre, introduction, image_url, slug')
+            .eq('slug', slug)
+            .eq('publie', true)
+            .single();
+
+        if (error || !data) return res.redirect('/blog/index.html');
+
+        const articleUrl = `https://www.mabucketliste.fr/blog/article.html?slug=${slug}`;
+        const image = data.image_url || 'https://www.mabucketliste.fr/assets/img/activities/blog-hero2.jpg';
+
+        res.send(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${data.titre} - Ma Bucket Liste</title>
+    <meta name="description" content="${data.introduction || ''}">
+    <meta property="og:title" content="${data.titre} - Ma Bucket Liste">
+    <meta property="og:description" content="${data.introduction || ''}">
+    <meta property="og:image" content="${image}">
+    <meta property="og:url" content="${articleUrl}">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Ma Bucket Liste">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${data.titre} - Ma Bucket Liste">
+    <meta name="twitter:description" content="${data.introduction || ''}">
+    <meta name="twitter:image" content="${image}">
+    <meta http-equiv="refresh" content="0;url=${articleUrl}">
+</head>
+<body>
+    <script>window.location.href = "${articleUrl}";</script>
+</body>
+</html>`);
+    } catch (error) {
+        res.redirect('/blog/index.html');
+    }
+});
 // POST /api/blog/create
 router.post('/create', async (req, res) => {
   const auth = req.headers.authorization;
